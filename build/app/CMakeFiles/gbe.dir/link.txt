@@ -1,1 +1,0 @@
-/usr/bin/aarch64-linux-gnu-gcc -fsanitize=address -pthread -Wl,--dependency-file=CMakeFiles/gbe.dir/link.d CMakeFiles/gbe.dir/src/cpu.c.o CMakeFiles/gbe.dir/src/gpu.c.o CMakeFiles/gbe.dir/src/input.c.o CMakeFiles/gbe.dir/src/main.c.o CMakeFiles/gbe.dir/src/memory.c.o -o gbe  ../hal/libhal.a
