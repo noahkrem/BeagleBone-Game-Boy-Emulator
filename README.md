@@ -33,7 +33,7 @@ Build a native (host) executable in a `build/` directory:
 
 ```bash
 cmake -S . -B build
-cmake --build build -- -j$(nproc)
+cmake --build build
 
 # The emulator binary is typically placed at:
 ls build/app/gbe
@@ -48,7 +48,7 @@ Use the included CMake toolchain file to produce an aarch64 binary. Example:
 ```bash
 cmake -S . -B build-aarch64 \
   -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-toolchain.cmake
-cmake --build build-aarch64 -- -j$(nproc)
+cmake --build build-aarch64
 
 # Resulting binary:
 ls build-aarch64/app/gbe
