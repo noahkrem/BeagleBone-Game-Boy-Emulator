@@ -1,0 +1,2 @@
+/usr/bin/aarch64-linux-gnu-ar qc libhal.a CMakeFiles/hal.dir/src/joystick.c.o CMakeFiles/hal.dir/src/led.c.o CMakeFiles/hal.dir/src/spi_access.c.o
+/usr/bin/aarch64-linux-gnu-ranlib libhal.a

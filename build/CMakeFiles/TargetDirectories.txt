@@ -1,0 +1,8 @@
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/CMakeFiles/edit_cache.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/CMakeFiles/rebuild_cache.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/hal/CMakeFiles/hal.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/hal/CMakeFiles/edit_cache.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/hal/CMakeFiles/rebuild_cache.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/app/CMakeFiles/gbe.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/app/CMakeFiles/edit_cache.dir
+/home/noahkrem/Documents/BeagleBone-Game-Boy-Emulator/build/app/CMakeFiles/rebuild_cache.dir
