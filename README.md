@@ -32,8 +32,7 @@ There is a toolchain file at `cmake/aarch64-toolchain.cmake` included in this re
 Build a native (host) executable in a `build/` directory:
 
 ```bash
-mkdir -p build
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build
 cmake --build build -- -j$(nproc)
 
 # The emulator binary is typically placed at:
@@ -47,9 +46,7 @@ Run the emulator on your host as appropriate (may require additional runtime con
 Use the included CMake toolchain file to produce an aarch64 binary. Example:
 
 ```bash
-mkdir -p build-aarch64
 cmake -S . -B build-aarch64 \
-  -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-toolchain.cmake
 cmake --build build-aarch64 -- -j$(nproc)
 

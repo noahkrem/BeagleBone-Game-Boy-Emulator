@@ -1,6 +1,6 @@
 # Tell cmake to use the aarch64 toolchain
 # Run the build command like so:
-#   $ cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-toolchain.cmake
+#   $ cmake -S . -B build-aarch64 -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-toolchain.cmake
 #   $ cmake --build build
 
 
