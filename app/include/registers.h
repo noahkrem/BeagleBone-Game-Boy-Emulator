@@ -1,6 +1,8 @@
 #ifndef REGISTERS_H
 #define REGISTERS_H
 
+#include <stdint.h>
+
 void regInit();
 void regShutdown();
 
