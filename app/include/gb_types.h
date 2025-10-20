@@ -13,6 +13,7 @@
 #define GB_TYPES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // Forward declaration
 struct gb_s;
@@ -48,6 +49,7 @@ enum gb_init_error_e {
 #define HRAM_IO_SIZE    0x0100  // 256 bytes High RAM + I/O
 
 #define ROM_BANK_SIZE   0x4000  /* 16KB ROM bank */
+#define MAX_ROM_BANKS   128     /* Max 2MB ROM size (16KB per bank) */
 #define CRAM_BANK_SIZE  0x2000  /* 8KB Cart RAM bank */
 
 // -------------------------------
@@ -138,6 +140,12 @@ enum gb_init_error_e {
 // -------------------------------
 
 #define DIV_CYCLES      256     // DIV increments every 256 cycles
+
+// Struct type that holds read bytes and a valid flag
+typedef struct {
+    uint8_t byte;
+    bool valid;
+} gb_read_byte_t;
 
 // -------------------------------
 // CPU Register Structure
@@ -254,10 +262,11 @@ struct gb_s {
     /**
      * Read byte from ROM
      * @param gb    Emulator context
+     * @param bank  ROM bank number
      * @param addr  16-bit address to read from
      * @return      Byte at address
      */
-    uint8_t (*gb_rom_read)(struct gb_s*, const uint32_t addr);
+    gb_read_byte_t (*gb_rom_read)(struct gb_s* gb, uint8_t bank, uint16_t addr);
 
     /**
      * Read byte from cartridge RAM
@@ -265,7 +274,7 @@ struct gb_s {
      * @param addr  16-bit address to read from
      * @return      Byte at address
      */
-    uint8_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr, const uint8_t val);
+    gb_read_byte_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr, const uint8_t val);
 
     /**
      * Write byte to cartridge RAM
@@ -310,6 +319,7 @@ struct gb_s {
 
     // ----- Memory Arrays -----
 
+    uint8_t* rom;                   // Pointer to loaded ROM data (don't know size at compile time, malloc it in bootloader function)
     uint8_t wram[WRAM_SIZE];        // Work RAM
     uint8_t vram[VRAM_SIZE];        // Video RAM 
     uint8_t oam[OAM_SIZE];          // Sprite attribute memory
