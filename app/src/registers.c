@@ -1,7 +1,6 @@
 #include "registers.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 // 8-bit registers, pairs are AF, BC, DE, HL
 static uint8_t A = 0x00;
