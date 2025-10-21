@@ -126,3 +126,67 @@ I'm more partial to arguments since where else is this stuff going to go?
 It's simpler and better if we don't have to be swapping data in and out between gb_s and something else all the time.
 
 All the config info is in ROM bank zero, therfore we should be able to configure everything in the bootloader by reading from that bank
+
+so instead of the approach before where we scrap the block number vars in gb_s and just directly use them in function calls 
+we should keep the block number because of the memory map
+if a program tries to read from address >=2000 then that's going to read from whatever block is currently selected, need to account for this is ROM_READ
+
+what are the different cart types and how those play with the gb_s settings?
+we're only considering carts with no MBC or MBC0 which includes {0, 1, 2, 3, 8, 9}
+"battery" means that the cart has a coincell that keeps the thing powered so it can non-volatile save progress (e.g. pokemon)
+some of these options don't make a lot of sense
+how can we have MBC but no RAM or RAM but no MBC?
+
+
+from GPCPUman 2.6: 
+    "MBC1 has two different maximum memory modes:
+    16Mbit ROM/8KByte RAM or 4Mbit ROM/32KByte RAM"
+These are the maximum total sizes of ROM and RAM for each case mode. The gameboy can have any combination below thse limits in each mode
+
+RAM and NOT(MBC) {8, 9} =>
+    The MBC is the device on the cartridge that controls switching between ROM and on-cartridge RAM banks.
+    Without an MBC (modes 0x00, 0x08, 0x09) it is not possible to switch banks for ROM and on-cartridge RAM.
+    In these modes (modes 0x00, 0x08, 0x09), the memory map is static meaning that reads or writes or some address in the ROM or on-cartridge RAM always address the same physical bytes
+    There are no blocks to switch between, and the memory map contains enough space for two 16 kB blocks (block 0 and the selected block), 
+    therefore the ROM size must be exactly 32 kB in all modes 0x00, 0x08, 0x09 cartridges. If there more another block, it could not be selected and addressed. 
+    If there were one less block, there would be "empty space" in the selected ROM block at addresses [0x2000, 0x3FFF].
+    The modes 0x08 and 0x09 dictate that there must be RAM on the cartridge, but that there is no MBC to switch between blocks of on-cartridge RAM. 
+    These facts impose a constraint that there must be exactly one 8 kB block of RAM on the cartridge. 
+    Any less and there would be zero block of on-cartridge RAM and the cartridge type would be 0x00. 
+    Any more and not all blocks would be addressable because there is no MBC to switch to the other block.
+
+NOT(RAM) and MBC {1} => 
+    The NOT(RAM) condition simply means that the cart hardware itself has no RAM on it.
+    The MBC can still change the selected ROM block, but reads/writes to cartridge RAM do nothing 
+
+How do we tell how much RAM the cart has?
+0149 RAM size:
+0 - None
+1 - 16kBit = 2kB = 1 bank
+2 - 64kBit = 8kB = 1 bank
+3 - 256kBit = 32kB = 4 banks
+4 - 1MBit =128kB =16 banks
+
+What's the deal with option 1 here?
+The size of the address space for the cartridge RAM is 8 kB which is 1 block of cart ram
+What happens in option 1 when we only have a quarter of the block?
+
+What's the deal with addresses [0xFF80, 0xFFFF)?
+These are the "HRAM" and are not part of the regular RAM
+This is always of a fixed size with no blocking 
+This RAM is like a CPU cache, very fast access but small
+
+How should we actually manage accessing all this memory and IO if everything's just in the same address space?
+    Option 1: 
+        - have separate read and write functions for each type of hardware
+        - each type of memory is stored in its own array that is sized just for itself
+        - pass the global address of the object to any of the read/write functions
+        - the read/write functions apply an appropriate offset for the thing they are trying to access
+
+        do we still need separate read/write for on-cart vs external RAM?
+        probably. Even though these do basically the same thing, gb_types has wram[WRAM_SIZE] fixed at 2kB
+        if necessary later we can wrap these both in a "read_ram" function that reads internal or on-cart based on the address
+
+        what are we going to do about the 2kB cart RAM case? what is num_cart_ram_banks going to be?
+        maybe some special define value that will never be reached otherwise?
+        the other options is to just add a separate variable for a flag, that's less clean imo

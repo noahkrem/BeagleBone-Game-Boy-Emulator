@@ -304,12 +304,12 @@ struct gb_s {
     // ----- Cartridge Info (MBC1 only for MVP) -----
 
     uint8_t mbc;                    // MBC type (0=none, 1=MBC1)
-    uint8_t cart_ram;               // 1 if cartridge has RAM
-    uint16_t num_rom_banks_mask;    // Mask for ROM bank selection 
-    uint8_t num_ram_banks;          // Number of RAM banks 
+    uint8_t cart_ram_enable;        // 1 if cartridge has RAM
+    uint16_t num_rom_banks;         // Number of ROM banks
+    uint8_t num_cart_ram_banks;     // Number of cartridge RAM banks
     
     uint16_t selected_rom_bank; // Current ROM bank
-    uint8_t cart_ram_bank;      // Current RAM bank
+    uint8_t selected_cart_ram_bank;      // Current RAM bank
     uint8_t enable_cart_ram;    // Cart RAM enable flag
     uint8_t cart_mode_select;   // MBC1 mode select
 

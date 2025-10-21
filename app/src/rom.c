@@ -15,7 +15,7 @@
 #include "gb_types.h"
 
 
-gb_read_byte_t gb_rom_read(struct gb_s* gb, uint8_t bank, uint16_t addr) {
+gb_read_byte_t gb_rom_read(struct gb_s* gb, uint16_t addr) {
 
     // Fail condition return values
     gb_read_byte_t result = {0, false};
@@ -28,23 +28,61 @@ gb_read_byte_t gb_rom_read(struct gb_s* gb, uint8_t bank, uint16_t addr) {
         perror("gb_rom_read: NULL ROM pointer in gb_s struct");
         return result;
     }
-    if(addr >= ROM_BANK_SIZE) {
+
+    // if an attempt is made to read from ROM that is at address >= 0x3FFF then that's an error automatically
+    // [0x0000, 0x1FFF] => Block 0
+    // [0x2000, 0x3FFF] => Selected Block
+    if(addr >= (2*ROM_BANK_SIZE)-1) {
         perror("gb_rom_read: Address out of range, addr = ");
         perror((char[]){(char)(addr >> 8), (char)(addr & 0xFF), '\0'});
         return result;
     }
-    if(bank >= MAX_ROM_BANKS) {
-        perror("gb_rom_read: Bank number out of range, bank = ");
-        perror((char[]){(char)bank, '\0'});
-        return result;
-    }
 
     // Calculate the actual address in the ROM array
-    size_t rom_addr = (size_t)(bank * ROM_BANK_SIZE + addr);
+    size_t rom_addr = (size_t)(gb->selected_rom_bank * ROM_BANK_SIZE + addr);
 
     // Return the byte at the address of the entire ROM block
-    return gb->rom[rom_addr];
+    result.byte = gb->rom[rom_addr];
+    result.valid = true;
+    return result;
 }
+
+
+
+int8_t gb_rom_select_bank(struct gb_s* gb, uint8_t bank) {
+
+    if(!gb) {
+        perror("gb_rom_select_bank: NULL gb_s pointer");
+        return -1;
+    }
+
+    if(!gb->mbc) {
+        perror("gb_rom_select_bank: Cartridge has no MBC, cannot select bank = ");
+        perror((char[]){(char)bank, '\0'});
+        return -1;
+    }
+
+    // Bank 0 is always available in addresses [0x0000, 0x1FFF], so selecting it is not allowed
+    if(bank == 0) {
+        perror("gb_rom_select_bank: Cannot select bank 0, remapping to bank 1\n");
+        bank = 1;   
+    }
+
+    // This checks whether the caller is attempting to select a block that is too high to exist on any cartrige
+    // Later we check against the actual loaded ROM size
+    if(bank >= gb->num_rom_banks) {
+        perror("gb_rom_select_bank: Bank number out of range, bank = ");
+        perror((char[]){(char)bank, '\0'});
+        perror(" , max banks = ");
+        perror((char[]){(char)(gb->num_rom_banks), '\0'});
+        return -1;
+    }
+
+    gb->selected_rom_bank = bank;
+    return 0;
+}
+
+
 
 struct gb_s* bootloader(char* rom_path) {
 
@@ -64,8 +102,8 @@ struct gb_s* bootloader(char* rom_path) {
     }
 
     // Read the ROM size byte
-    uint8_t rom_size;
-    if (fread(&rom_size, sizeof(uint8_t), 1, rom_file) != 1) {
+    uint8_t rom_size_from_cart;
+    if (fread(&rom_size_from_cart, sizeof(uint8_t), 1, rom_file) != 1) {
         perror("bootloader: fread at 0x0148 failed");
         fclose(rom_file);
         return NULL;
@@ -85,20 +123,21 @@ struct gb_s* bootloader(char* rom_path) {
      * 0x53 - 10Mbit = 1.2MByte = 80 banks
      * 0x54 - 12Mbit = 1.5MByte = 96 banks
      */
-    switch (rom_size) {
-        case 0x00: rom_size = 2*ROM_BANK_SIZE; break;
-        case 0x01: rom_size = 4*ROM_BANK_SIZE; break;
-        case 0x02: rom_size = 8*ROM_BANK_SIZE; break;
-        case 0x03: rom_size = 16*ROM_BANK_SIZE; break;
-        case 0x04: rom_size = 32*ROM_BANK_SIZE; break;
-        case 0x05: rom_size = 64*ROM_BANK_SIZE; break;
-        case 0x06: rom_size = 128*ROM_BANK_SIZE; break;
-        case 0x52: rom_size = 72*ROM_BANK_SIZE; break;
-        case 0x53: rom_size = 80*ROM_BANK_SIZE; break;
-        case 0x54: rom_size = 96*ROM_BANK_SIZE; break;
+    uint8_t num_rom_banks = 0;
+    switch (rom_size_from_cart) {
+        case 0x00: num_rom_banks = 2; break;
+        case 0x01: num_rom_banks = 4; break;
+        case 0x02: num_rom_banks = 8; break;
+        case 0x03: num_rom_banks = 16; break;
+        case 0x04: num_rom_banks = 32; break;
+        case 0x05: num_rom_banks = 64; break;
+        case 0x06: num_rom_banks = 128; break;
+        case 0x52: num_rom_banks = 72; break;
+        case 0x53: num_rom_banks = 80; break;
+        case 0x54: num_rom_banks = 96; break;
         default:
             perror("bootloader: Unsupported ROM size code:");
-            perror((char[]){rom_size, '\0'});
+            perror((char[]){rom_size_from_cart, '\0'});
             fclose(rom_file);
             return NULL;
     }
@@ -111,6 +150,8 @@ struct gb_s* bootloader(char* rom_path) {
     }
 
     // Allocate memory for the ROM data read from file
+    uint64_t rom_size = (num_rom_banks * ROM_BANK_SIZE);
+    gb->num_rom_banks = num_rom_banks;
     gb->rom = (uint8_t*)malloc(rom_size);
     if (!gb->rom) {
         perror("bootloader: Failed to allocate memory for ROM");
@@ -141,8 +182,101 @@ struct gb_s* bootloader(char* rom_path) {
     // We no longer need the file open
     fclose(rom_file);
 
+    // Initialize the selected ROM bank to bank 0
+    gb_rom_select_bank(gb, 0);
 
-    // Assign the fucntion pointers in the gb_s struct to the defined functions
-    
+    // Extract the cartrige type from address 0x0147
+    gb_read_byte_t cart_type_read = gb_rom_read(gb, 0x0147);
+    if(!cart_type_read.valid) {
+        perror("bootloader: Failed to read cartridge type from ROM");
+        free(gb->rom);
+        free(gb);
+        return NULL;
+    }
+    switch (cart_type_read.byte) {
+        case 0x00: // No MBC + no cartridge RAM
+            gb->mbc = 0;
+            gb->cart_ram_enable = 0;
+            gb->num_cart_ram_banks = 0;
+            break;
+        case 0x01: // MBC1 + not cartridge RAM
+            gb->mbc = 1;
+            gb->cart_ram_enable = 0;
+            break;
+        case 0x02: // MBC1 + RAM
+            gb->mbc = 1;
+            gb->cart_ram_enable = 1;
+            break;
+        case 0x03: // MBC1 + RAM + Battery (same as 0x02 for our purposes)
+            gb->mbc = 1;
+            gb->cart_ram_enable = 1;
+            break;
+        case 0x08: // No MBC + RAM 
+            gb->mbc = 0;
+            gb->cart_ram_enable = 1;
+            gb->num_cart_ram_banks = 1; // No block switching, must be 8KB of on-cartridge RAM
+            break;
+        case 0x09: // No MBC + RAM + Battery (same as 0x08 for our purposes)
+            gb->mbc = 0;
+            gb->cart_ram_enable = 1;
+            gb->num_cart_ram_banks = 1; // Must be 8KB of on-cartridge RAM
+            break;  
+        default:
+            perror("bootloader: Unsupported cartridge type:");
+            perror((char[]){cart_type_read.byte, '\0'});
+            free(gb->rom);
+            free(gb);
+            return NULL;
+    }
+
+    // Now we need to get the size of the on-cartridge RAM in banks, this is in ROM addr 0x0149
+    // TODO: make all of these special addresses into defines
+    gb_read_byte_t cart_ram_size_read = gb_rom_read(gb, 0x0149);
+    if(!cart_ram_size_read.valid) {
+        perror("bootloader: Failed to read cartridge RAM size from ROM");
+        free(gb->rom);
+        free(gb);
+        return NULL;
+    }
+    // TODO: put the tables from the manual here and in the other switch statements for sizes
+    /* 
+     * From the GBCPUManual section 2.54 page 12
+     * RAM size:
+     *  0 - None
+     *  1 - 16kBit  = 2kB   = 1 bank
+     *  2 - 64kBit  = 8kB   = 1 bank
+     *  3 - 256kBit = 32kB  = 4 banks
+     *  4 - 1MBit   = 128kB = 16 banks
+     */
+    switch (cart_ram_size_read.byte) {
+        case 0x00: // No RAM
+            gb->num_cart_ram_banks = 0;
+            break;
+        case 0x01: // 2KB RAM
+            gb->num_cart_ram_banks = 1; // No block switching, must be 2KB of on-cartridge RAM
+            break;
+        case 0x02: // 8KB RAM
+            gb->num_cart_ram_banks = 1; // No block switching, must be 8KB of on-cartridge RAM
+            break;
+        case 0x03: // 32KB RAM (4 banks of 8KB each)
+            gb->num_cart_ram_banks = 4;
+            break;
+        case 0x04: // 128KB RAM (16 banks of 8KB each)
+            gb->num_cart_ram_banks = 16;
+            break;
+        case 0x05: // 64KB RAM (8 banks of 8KB each)
+            gb->num_cart_ram_banks = 8;
+            break;  
+        default:
+            perror("bootloader: Unsupported cartridge RAM size:");
+            perror((char[]){cart_ram_size_read.byte, '\0'});
+            free(gb->rom);
+            free(gb);
+            return NULL;
+    }
+
+
+    // Assign the function pointers in the gb_s struct to the defined functions
+
     return gb;
 }
