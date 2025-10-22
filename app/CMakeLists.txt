@@ -11,5 +11,5 @@ target_link_libraries(gbe LINK_PRIVATE hal)
 add_custom_command(TARGET gbe POST_BUILD 
   COMMAND "${CMAKE_COMMAND}" -E copy 
      "$<TARGET_FILE:gbe>"
-     "~/ensc-351/public/proj/gbe"  # NOTE: CHANGE THIS TO YOUR NFS DIRECTORY
+     "~/ensc351/public/myApps/gbemu"  # NOTE: CHANGE THIS TO YOUR NFS DIRECTORY
   COMMENT "Copying ARM executable to public NFS directory")

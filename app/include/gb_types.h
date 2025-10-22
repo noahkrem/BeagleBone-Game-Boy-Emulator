@@ -269,6 +269,14 @@ struct gb_s {
     gb_read_byte_t (*gb_rom_read)(struct gb_s* gb, uint8_t bank, uint16_t addr);
 
     /**
+     * Select ROM bank
+     * @param gb    Emulator context
+     * @param bank  ROM bank number to select
+     * @return      TRUE on success, FALSE on failure
+     */
+    bool (*gb_rom_select_bank)(struct gb_s* gb, uint8_t bank);
+
+    /**
      * Read byte from cartridge RAM
      * @param gb    Emulator context
      * @param addr  16-bit address to read from

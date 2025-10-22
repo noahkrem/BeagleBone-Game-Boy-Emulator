@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "rom.h"
 #include "gb_types.h"
 
@@ -38,28 +40,37 @@ gb_read_byte_t gb_rom_read(struct gb_s* gb, uint16_t addr) {
         return result;
     }
 
-    // Calculate the actual address in the ROM array
-    size_t rom_addr = (size_t)(gb->selected_rom_bank * ROM_BANK_SIZE + addr);
+    uint16_t rom_array_addr = 0;
 
+    // Calculate the actual address in the ROM array
+    if(addr < ROM_BANK_SIZE) {
+        // Address is in fixed bank 0
+        rom_array_addr = (size_t)(addr);
+    }
+    else {
+        // Address is in the switchable bank
+        rom_array_addr = (size_t)(gb->selected_rom_bank * ROM_BANK_SIZE + addr);
+    }
+    
     // Return the byte at the address of the entire ROM block
-    result.byte = gb->rom[rom_addr];
+    result.byte = gb->rom[rom_array_addr];
     result.valid = true;
     return result;
 }
 
 
 
-int8_t gb_rom_select_bank(struct gb_s* gb, uint8_t bank) {
+bool gb_rom_select_bank(struct gb_s* gb, uint8_t bank) {
 
     if(!gb) {
         perror("gb_rom_select_bank: NULL gb_s pointer");
-        return -1;
+        return false;
     }
 
     if(!gb->mbc) {
         perror("gb_rom_select_bank: Cartridge has no MBC, cannot select bank = ");
         perror((char[]){(char)bank, '\0'});
-        return -1;
+        return false;
     }
 
     // Bank 0 is always available in addresses [0x0000, 0x1FFF], so selecting it is not allowed
@@ -75,11 +86,11 @@ int8_t gb_rom_select_bank(struct gb_s* gb, uint8_t bank) {
         perror((char[]){(char)bank, '\0'});
         perror(" , max banks = ");
         perror((char[]){(char)(gb->num_rom_banks), '\0'});
-        return -1;
+        return false;
     }
 
     gb->selected_rom_bank = bank;
-    return 0;
+    return false;
 }
 
 
@@ -142,6 +153,8 @@ struct gb_s* bootloader(char* rom_path) {
             return NULL;
     }
 
+    printf("bootloader: Detected ROM size code: %02X, num banks: %d\n", rom_size_from_cart, num_rom_banks);
+
     // Allocate memory for the emulator context struct itself
     struct gb_s* gb = (struct gb_s*)malloc(sizeof(struct gb_s));
     if (!gb) {
@@ -159,6 +172,8 @@ struct gb_s* bootloader(char* rom_path) {
         free(gb);
         return NULL;
     }
+
+    printf("bootloader: Allocated %llu bytes for ROM data\n", (unsigned long long)rom_size);
 
     // Seek back to the beginning of the ROM file
     if (fseek(rom_file, (size_t)0, SEEK_SET) != 0) {
@@ -182,8 +197,18 @@ struct gb_s* bootloader(char* rom_path) {
     // We no longer need the file open
     fclose(rom_file);
 
-    // Initialize the selected ROM bank to bank 0
-    gb_rom_select_bank(gb, 0);
+    // Print initial block contents for debugging
+    #ifdef DEBUG_ROM
+        int n = 0x0200; // number of bytes to print
+        for(int i = 0; i < n; i ++) {
+            printf("ROM[0x%04X] = 0x%02X\t", i, gb->rom[i]);
+            if((i + 1) % 8 == 0) {
+                printf("\n");
+            }
+        }
+        printf("\nFinished printing first %d ROM bytes\n", n);
+    #endif
+
 
     // Extract the cartrige type from address 0x0147
     gb_read_byte_t cart_type_read = gb_rom_read(gb, 0x0147);
@@ -193,6 +218,18 @@ struct gb_s* bootloader(char* rom_path) {
         free(gb);
         return NULL;
     }
+    /**
+     * 0x0147 Cartridge type (hex):
+     * 0x00 - ROM ONLY 
+     * 0x01 - ROM + MBC1
+     * 0x02 - ROM + MBC1 + RAM
+     * 0x03 - ROM + MBC1 + RAM + BATTERY
+     * 0x05 - ROM + MBC2
+     * 0x06 - ROM + MBC2 + BATTERY
+     * 0x08 - ROM + RAM
+     * 0x09 - ROM + RAM + BATTERY
+     */
+
     switch (cart_type_read.byte) {
         case 0x00: // No MBC + no cartridge RAM
             gb->mbc = 0;
@@ -222,8 +259,7 @@ struct gb_s* bootloader(char* rom_path) {
             gb->num_cart_ram_banks = 1; // Must be 8KB of on-cartridge RAM
             break;  
         default:
-            perror("bootloader: Unsupported cartridge type:");
-            perror((char[]){cart_type_read.byte, '\0'});
+            printf("bootloader: Unsupported cartridge type: 0x%2X\n", (cart_type_read.byte));
             free(gb->rom);
             free(gb);
             return NULL;
@@ -253,7 +289,7 @@ struct gb_s* bootloader(char* rom_path) {
             gb->num_cart_ram_banks = 0;
             break;
         case 0x01: // 2KB RAM
-            gb->num_cart_ram_banks = 1; // No block switching, must be 2KB of on-cartridge RAM
+            gb->num_cart_ram_banks = NUM_CART_ROM_BANKS_2KB; // special case for 2 kB on-cart RAM
             break;
         case 0x02: // 8KB RAM
             gb->num_cart_ram_banks = 1; // No block switching, must be 8KB of on-cartridge RAM
@@ -275,8 +311,77 @@ struct gb_s* bootloader(char* rom_path) {
             return NULL;
     }
 
+    // Verify the scrolling Nintendo graphic as a sanity check
+    uint8_t correct_nintendo_graphic[] = {
+        0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B,
+        0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+        0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E,
+        0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
+        0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC,
+        0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
+    };
+
+    // Loop through each of the the Nintendo graphic bytes and compare to the correct
+    for(int  i = 0; i < NINTENDO_END_ADDR - NINTENDO_START_ADDR; i++) {
+        gb_read_byte_t byte = gb_rom_read(gb, NINTENDO_START_ADDR + i);
+        if(!byte.valid) {
+            printf("bootloader: Failed to read Nintendo graphic from ROM at address = ");
+            free(gb->rom);
+            free(gb);
+            return NULL;
+        }
+        else {
+            if(byte.byte != correct_nintendo_graphic[i]) {
+                printf("bootloader: Nintendo graphic mismatch at address 0x%04X, expected 0x%02X, got 0x%02X\n",
+                    NINTENDO_START_ADDR + i, correct_nintendo_graphic[i], byte.byte);
+                free(gb->rom);
+                free(gb);
+                return NULL;
+            }
+        }
+    }
+
+    printf("bootloader: Successfully verified Nintendo graphic in ROM\n");
+
+    // Check for super GameBoy cartridge, unsupported
+    if((gb_rom_read(gb, 0x0146)).byte) {
+        printf("bootloader: Super GameBoy cartridges are unsupported\n");
+        free(gb->rom);
+        free(gb);
+        return NULL;
+    }
+
+    // Check for GameBoy Color cartridge, unsupported
+    if((gb_rom_read(gb, 0x0143)).byte) {
+        printf("bootloader: GameBoy Color cartridges are unsupported\n");
+        free(gb->rom);
+        free(gb);
+        return NULL;
+    }
 
     // Assign the function pointers in the gb_s struct to the defined functions
+    // TODO: add the rest of these once the functions are implemented
+    //gb->gb_rom_read = &gb_rom_read;
+    //gb->gb_rom_select_bank = &gb_rom_select_bank;
+    // gb->gb_cart_ram_read = &gb_cart_ram_read;
+    // gb->gb_cart_ram_write = &gb_cart_ram_write;
+    // gb->gb_error = &gb_error;
+
+    // Success!
+    printf("bootloader: Successfully loaded ROM and initialized gb_s struct\n");
+
+    // Print a welcome message with the name of the game that was loaded form the ROM
+    printf("Welcome to ");
+    uint8_t title_addr_offset = 0;
+    gb_read_byte_t title_char = gb_rom_read(gb, TITLE_START_ADDR + title_addr_offset);
+    
+    // To be a valid title character, it must be non-zero and valid bit of the read_t must be 1
+    while((title_char.byte) && (title_char.valid) && (title_addr_offset < (TITLE_END_ADDR - TITLE_START_ADDR))) {
+        printf("%c", (char)(title_char.byte));
+        title_addr_offset++;
+        title_char = gb_rom_read(gb, TITLE_START_ADDR + title_addr_offset);
+    }
+    printf("!\n");
 
     return gb;
 }
