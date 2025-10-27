@@ -13,6 +13,7 @@
 #define GB_TYPES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // Forward declaration
 struct gb_s;
@@ -268,12 +269,22 @@ struct gb_s {
     uint8_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr, const uint8_t val);
 
     /**
+     * read values from address
+     */
+    uint8_t (*gb_read)(struct gb_s* gb, const uint32_t addr);
+
+    /**
      * Write byte to cartridge RAM
      * @param gb    Emulator context
      * @param addr  Address to write to
      * @param val   Value to write
      */
     void (*gb_cart_ram_write)(struct gb_s*, const uint32_t addr, const uint8_t val);
+
+    /**
+     * write value to address
+     */
+    void (*gb_write)(struct gb_s* gb, uint32_t addr, const uint8_t val);    
 
     /**
      * Error handler
