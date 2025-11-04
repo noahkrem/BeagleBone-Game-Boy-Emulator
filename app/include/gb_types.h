@@ -266,12 +266,7 @@ struct gb_s {
      * @param addr  16-bit address to read from
      * @return      Byte at address
      */
-    uint8_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr, const uint8_t val);
-
-    /**
-     * read values from address
-     */
-    uint8_t (*gb_read)(struct gb_s* gb, const uint32_t addr);
+    uint8_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr);
 
     /**
      * Write byte to cartridge RAM
@@ -282,17 +277,12 @@ struct gb_s {
     void (*gb_cart_ram_write)(struct gb_s*, const uint32_t addr, const uint8_t val);
 
     /**
-     * write value to address
-     */
-    void (*gb_write)(struct gb_s* gb, uint32_t addr, const uint8_t val);    
-
-    /**
      * Error handler
      * @param gb    Emulator context
      * @param error Error code
      * @param addr  Address where error occurred
      */
-    void (*gb_error)(struct gb_s*, const enum gb_error_e error, const uint16_t addr);\
+    void (*gb_error)(struct gb_s*, const enum gb_error_e error, const uint16_t addr);
 
     // ----- CPU State -----
 
