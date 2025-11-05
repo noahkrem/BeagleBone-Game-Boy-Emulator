@@ -49,7 +49,6 @@ enum gb_init_error_e {
 #define HRAM_IO_SIZE    0x0100  // 256 bytes High RAM + I/O
 
 #define ROM_BANK_SIZE   0x4000  /* 16KB ROM bank */
-#define MAX_ROM_BANKS   128     /* Max 2MB ROM size (16KB per bank) */
 #define CRAM_BANK_SIZE  0x2000  /* 8KB Cart RAM bank */
 
 // -------------------------------
@@ -140,12 +139,6 @@ enum gb_init_error_e {
 // -------------------------------
 
 #define DIV_CYCLES      256     // DIV increments every 256 cycles
-
-// Struct type that holds read bytes and a valid flag
-typedef struct {
-    uint8_t byte;
-    bool valid;
-} gb_read_byte_t;
 
 // -------------------------------
 // CPU Register Structure
@@ -262,19 +255,10 @@ struct gb_s {
     /**
      * Read byte from ROM
      * @param gb    Emulator context
-     * @param bank  ROM bank number
      * @param addr  16-bit address to read from
      * @return      Byte at address
      */
-    gb_read_byte_t (*gb_rom_read)(struct gb_s* gb, uint8_t bank, uint16_t addr);
-
-    /**
-     * Select ROM bank
-     * @param gb    Emulator context
-     * @param bank  ROM bank number to select
-     * @return      TRUE on success, FALSE on failure
-     */
-    bool (*gb_rom_select_bank)(struct gb_s* gb, uint8_t bank);
+    uint8_t (*gb_rom_read)(struct gb_s*, const uint32_t addr);
 
     /**
      * Read byte from cartridge RAM
@@ -282,7 +266,7 @@ struct gb_s {
      * @param addr  16-bit address to read from
      * @return      Byte at address
      */
-    gb_read_byte_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr, const uint8_t val);
+    uint8_t (*gb_cart_ram_read)(struct gb_s*, const uint32_t addr);
 
     /**
      * Write byte to cartridge RAM
@@ -298,7 +282,7 @@ struct gb_s {
      * @param error Error code
      * @param addr  Address where error occurred
      */
-    void (*gb_error)(struct gb_s*, const enum gb_error_e error, const uint16_t addr);\
+    void (*gb_error)(struct gb_s*, const enum gb_error_e error, const uint16_t addr);
 
     // ----- CPU State -----
 
@@ -312,12 +296,12 @@ struct gb_s {
     // ----- Cartridge Info (MBC1 only for MVP) -----
 
     uint8_t mbc;                    // MBC type (0=none, 1=MBC1)
-    uint8_t cart_ram_enable;        // 1 if cartridge has RAM
-    uint16_t num_rom_banks;         // Number of ROM banks
-    uint8_t num_cart_ram_banks;     // Number of cartridge RAM banks
+    uint8_t cart_ram;               // 1 if cartridge has RAM
+    uint16_t num_rom_banks_mask;    // Mask for ROM bank selection 
+    uint8_t num_ram_banks;          // Number of RAM banks 
     
     uint16_t selected_rom_bank; // Current ROM bank
-    uint8_t selected_cart_ram_bank;      // Current RAM bank
+    uint8_t cart_ram_bank;      // Current RAM bank
     uint8_t enable_cart_ram;    // Cart RAM enable flag
     uint8_t cart_mode_select;   // MBC1 mode select
 
@@ -327,7 +311,6 @@ struct gb_s {
 
     // ----- Memory Arrays -----
 
-    uint8_t* rom;                   // Pointer to loaded ROM data (don't know size at compile time, malloc it in bootloader function)
     uint8_t wram[WRAM_SIZE];        // Work RAM
     uint8_t vram[VRAM_SIZE];        // Video RAM 
     uint8_t oam[OAM_SIZE];          // Sprite attribute memory

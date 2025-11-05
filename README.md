@@ -64,8 +64,26 @@ ls build-aarch64/app/gbe
 
 - `app/` - emulator sources and headers (CPU, GPU, input, memory, main)
 - `hal/` - hardware abstraction layer (BeagleBone- and hardware-specific code)
+- `tests/` - unit tests and test framework
 - `cmake/` - (optional) toolchain files (e.g. `aarch64-toolchain.cmake`)
 - `build/` - out-of-source build directory (generated)
+
+## Running Tests
+
+The project includes unit tests in the `tests/` directory. To build and run the tests:
+
+```bash
+# Configure and build the project with tests
+cmake -S . -B build
+cmake --build build
+```
+
+Individual test executables can be run directly:
+
+```bash
+# Run CPU tests specifically
+./build/tests/cpu_test
+```
 
 ## Troubleshooting
 
