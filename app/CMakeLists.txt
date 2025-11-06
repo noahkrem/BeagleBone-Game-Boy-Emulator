@@ -6,6 +6,7 @@ set(GBE_CORE_SOURCES
       src/cpu.c
       src/gpu.c
       src/input.c
+      src/rom.c
       src/memory.c
       src/registers.c
 )

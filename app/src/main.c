@@ -7,23 +7,28 @@
 #include "gb_types.h"
 
 
-int main() {
+int main(int argc, char **argv) {
 
-    printf("Hello, BeagleBone!\n");
-
-    struct gb_s* gameboy = bootloader(TETRIS_ROM_PATH);
-
-    //free(gameboy->rom);
-    //free(gameboy);
-    if(gameboy) {
-        printf("Bootloader completed successfully!\n");
-    }
-    else {
-        printf("Bootloader failed!\n");
+    if (argc < 2) {
+        printf("Usage: %s <rom_file.gb>\n", argv[0]);
+        return 1;
     }
 
-    free(gameboy->rom);
-    free(gameboy);
+    // Load ROM
+    struct gb_s *gb = bootloader(argv[1]);
+    if (!gb) {
+        fprintf(stderr, "Failed to load ROM\n");
+        return 1;
+    }
 
+    // Run emulator
+    while (!gb->gb_halt) {
+        cpu_step(gb);
+    }
+
+    // Clean up
+    bootloader_cleanup();
+    free(gb);
+    
     return 0;
 }

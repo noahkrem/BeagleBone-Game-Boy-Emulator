@@ -159,7 +159,7 @@ struct cpu_registers_s {
         uint8_t reg;
     } f; // Flag register
     uint8_t a; // Accumulator register
-
+    
     // BC register pair
     union {
         struct {
@@ -177,7 +177,7 @@ struct cpu_registers_s {
         } bytes;
         uint16_t reg;
     } de;
-
+    
     // HL register pair
     union {
         struct {
@@ -186,7 +186,7 @@ struct cpu_registers_s {
         } bytes;
         uint16_t reg;
     } hl;
-
+    
     // Stack Pointer
     union {
         struct {
@@ -195,7 +195,7 @@ struct cpu_registers_s {
         } bytes;
         uint16_t reg;
     } sp;
-
+    
     // Program Counter
     union {
         struct {
@@ -222,25 +222,25 @@ struct counter_s {
 
 struct display_s {
     /**
-     * Callback to draw a line on the screen
-     * Called once per scanline during LCD draw mode
-     * 
-     * @param gb        Emulator context
-     * @param pixels    160 pixels for the line
-     *                  Bits 0-1: Color value (0-3)
-     *                  Bits 4-5: Palette (0=OBJ0, 1=OBJ1, 2=BG)
-     *                  Other bits are undefined.
-     *                  Bits 4-5 are only required by frontends that support multiple palettes,
-     *                  like the Game Boy Color, otherwise they can be ignored.
-     * 
-     * @param line      Y-coordinate (0-143)
-     */
+    * Callback to draw a line on the screen
+    * Called once per scanline during LCD draw mode
+    * 
+    * @param gb        Emulator context
+    * @param pixels    160 pixels for the line
+    *                  Bits 0-1: Color value (0-3)
+    *                  Bits 4-5: Palette (0=OBJ0, 1=OBJ1, 2=BG)
+    *                  Other bits are undefined.
+    *                  Bits 4-5 are only required by frontends that support multiple palettes,
+    *                  like the Game Boy Color, otherwise they can be ignored.
+    * 
+    * @param line      Y-coordinate (0-143)
+    */
     void (*lcd_draw_line)(struct gb_s* gb, const uint8_t* pixels, uint8_t line);
-
+    
     // Palette data
     uint8_t bg_palette[4];  // Background palette (4 colors)
     uint8_t sp_palette[8];  // Sprite palettes (2 palettes, 4 colors each)
-
+    
     // Window tracking
     uint8_t window_clear;   // Window line counter
     uint8_t WY;             // Window Y position
@@ -251,16 +251,16 @@ struct display_s {
 // -------------------------------
 
 struct gb_s {
-
+    
     /**
-     * Read byte from ROM
-     * @param gb    Emulator context
+    * Read byte from ROM
+    * @param gb    Emulator context
      * @param addr  16-bit address to read from
      * @return      Byte at address
      */
-    uint8_t (*gb_rom_read)(struct gb_s*, const uint32_t addr);
-
-    /**
+     uint8_t (*gb_rom_read)(struct gb_s*, const uint32_t addr);
+     
+     /**
      * Read byte from cartridge RAM
      * @param gb    Emulator context
      * @param addr  16-bit address to read from
@@ -310,7 +310,7 @@ struct gb_s {
     struct counter_s counter;
 
     // ----- Memory Arrays -----
-
+    
     uint8_t wram[WRAM_SIZE];        // Work RAM
     uint8_t vram[VRAM_SIZE];        // Video RAM 
     uint8_t oam[OAM_SIZE];          // Sprite attribute memory

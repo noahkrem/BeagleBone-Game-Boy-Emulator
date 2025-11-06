@@ -1,8 +1,15 @@
-#include "gb_types.h"
+/**
+ * bootloader.h - ROM Loader Interface
+ * Author: Dan Renardson
+ *
+ * Provides functions to load ROM files and initialize the emulator.
+ */
 
+ 
 #ifndef ROM_H
 #define ROM_H
-
+ 
+#include "gb_types.h"
 
 #define DEBUG_ROM 1 // Debug macro that prints lots of info about ROM
 #define TETRIS_ROM_PATH "rom/tetris.gb" // Path to Tetris ROM file
@@ -15,21 +22,21 @@
 #define TITLE_START_ADDR 0x0134 // start and end addresses for the game title in the ROM header
 #define TITLE_END_ADDR   0x0143
 
-/**
- * Read byte from ROM. It is the caller's responsibility to have the correct block selected.
- * @param gb    Emulator context
- * @param addr  16-bit address to read from
- * @return      Byte at address
- */
-gb_read_byte_t gb_rom_read(struct gb_s* gb, uint16_t addr);
+// /**
+//  * Read byte from ROM. It is the caller's responsibility to have the correct block selected.
+//  * @param gb    Emulator context
+//  * @param addr  16-bit address to read from
+//  * @return      Byte at address
+//  */
+// gb_read_byte_t gb_rom_read(struct gb_s* gb, uint16_t addr);
 
-/**
- * Select ROM bank.
- * @param gb    Emulator context
- * @param bank  ROM bank number to select
- * @return      TRUE on success, FALSE on failure
- */
-bool gb_rom_select_bank(struct gb_s* gb, uint8_t bank);
+// /**
+//  * Select ROM bank.
+//  * @param gb    Emulator context
+//  * @param bank  ROM bank number to select
+//  * @return      TRUE on success, FALSE on failure
+//  */
+// bool gb_rom_select_bank(struct gb_s* gb, uint8_t bank);
 
 /** 
  *  Bootloader function to initialize and return a pointer to the main emulator context.
@@ -38,6 +45,11 @@ bool gb_rom_select_bank(struct gb_s* gb, uint8_t bank);
  */
 struct gb_s* bootloader(char* rom_path);
 
+/**
+ * Clean up ROM and cart RAM memory
+ * Call this when shutting down the emulator
+ */
+void bootloader_cleanup(void);
 
 
 
