@@ -11,6 +11,7 @@
 #include "registers.h"
 #include "gb_types.h"
 #include "memory.h"
+#include "gpu.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -1572,11 +1573,105 @@ uint16_t cpu_step(struct gb_s *gb) {
             }
             break;
     }
-    
+
+    do {
+        /* DIV register timing */
+        gb->counter.div_count += cycles;
+
+        while(gb->counter.div_count >= DIV_CYCLES){
+            gb->hram_io[IO_DIV]++;
+            gb->counter.div_count -= DIV_CYCLES;
+        }
+
+        // /* If LCD is off, don't update LCD state or increase the LCD
+        //  * ticks. Instead, keep track of the amount of time that is
+        //  * being passed. */
+        // if(!(gb->hram_io[IO_LCDC] & LCDC_ENABLE)){
+        //     gb->counter.lcd_off_count += cycles;
+        //     if(gb->counter.lcd_off_count >= LCD_FRAME_CYCLES){
+        //         gb->counter.lcd_off_count -= LCD_FRAME_CYCLES;
+        //         gb->gb_frame = true;
+        //     }
+        //     continue;
+        // }
+
+        /* LCD Timing */
+        gb->counter.lcd_count += cycles;
+
+        /* New Scanline. HBlank -> VBlank or OAM Scan */
+        if(gb->counter.lcd_count >= LCD_LINE_CYCLES){
+
+            gb->counter.lcd_count -= LCD_LINE_CYCLES;
+
+            /* Next line */
+            gb->hram_io[IO_LY]++;
+
+            if(gb->hram_io[IO_LY] == LCD_VERT_LINES) gb->hram_io[IO_LY] = 0;
+
+            /* LYC Update */
+            if(gb->hram_io[IO_LY] == gb->hram_io[IO_LYC]){
+                gb->hram_io[IO_STAT] |= STAT_LYC_COINC;
+
+                if(gb->hram_io[IO_STAT] & STAT_LYC_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
+            } else {
+                gb->hram_io[IO_STAT] &= 0xFB;
+            }
+            /* Check if LCD should be in Mode 1 (VBLANK) state */
+            if(gb->hram_io[IO_LY] == LCD_HEIGHT){
+                gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_VBLANK;
+                gb->gb_frame = true;
+                gb->hram_io[IO_IF] |= VBLANK_INTR;
+                gb->lcd_blank = false;
+
+                if(gb->hram_io[IO_STAT] & STAT_MODE_1_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
+
+                /* If halted forever, then return on VBLANK. */
+                if(gb->gb_halt && !gb->hram_io[IO_IE]) break;
+
+            /* Start of normal Line (not in VBLANK) */
+            } else if(gb->hram_io[IO_LY] < LCD_HEIGHT){ 
+                if(gb->hram_io[IO_LY] == 0){
+                    /* Clear Screen */
+                    gb->display.WY = gb->hram_io[IO_WY];
+                    gb->display.window_clear = 0;
+                }
+
+                /* OAM Search occurs at the start of the line. */
+                gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
+
+                if (gb->hram_io[IO_STAT] & STAT_MODE_2_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
+
+                cycles = LCD_MODE2_OAM_SCAN_DURATION;
+            }
+
+        /* Go from Mode 3 (LCD Draw) to Mode 0 (HBLANK). */
+        } else if((gb->hram_io[IO_STAT] & STAT_MODE) == LCD_MODE_LCD_DRAW  && 
+                    gb->counter.lcd_count >= LCD_MODE3_LCD_DRAW_END){ 
+            gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_HBLANK;
+
+            if (gb->hram_io[IO_STAT] & STAT_MODE_0_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
+
+            /* If halted immediately, jump from OAM Scan to LCD Draw. */
+            if (gb->counter.lcd_count < LCD_MODE0_HBLANK_MAX_DRUATION){
+                cycles = LCD_MODE0_HBLANK_MAX_DRUATION - gb->counter.lcd_count;
+            }
+
+        /* Go from Mode 2 (OAM Scan) to Mode 3 (LCD Draw). */
+        } else if((gb->hram_io[IO_STAT] & STAT_MODE) == LCD_MODE_OAM_SCAN &&
+                    gb->counter.lcd_count >= LCD_MODE2_OAM_SCAN_END){
+            gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_LCD_DRAW;
+
+            if(!gb->lcd_blank) gpu_draw_line(gb);
+
+            /* If halted immediately jump to next LCD mode. */
+            if(gb->counter.lcd_count < LCD_MODE3_LCD_DRAW_MIN_DURATION){
+                cycles = LCD_MODE3_LCD_DRAW_MIN_DURATION - gb->counter.lcd_count;
+            }
+        }
+    } while(gb->gb_halt && (gb->hram_io[IO_IF] & gb->hram_io[IO_IE]) == 0);
+
     return cycles;
 }
-
-
 
 // -------------------------------
 // CPU Initialization and Reset

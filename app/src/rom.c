@@ -177,8 +177,8 @@ void bootloader_error_handler(struct gb_s *gb, enum gb_error_e error, uint16_t a
     fprintf(stderr, "EMULATOR ERROR: %s at address 0x%04X\n",
             error < GB_INVALID_MAX ? error_str[error] : "Unknown error",
             addr);
-    fprintf(stderr, "PC: 0x%04X, A: 0x%02X\n",
-            gb->cpu_reg.pc.reg, gb->cpu_reg.a);
+    fprintf(stderr, "PC: 0x%04X, A: 0x%02X, OpCode: 0x%02X\n",
+            gb->cpu_reg.pc.reg, gb->cpu_reg.a, mmu_read(gb, addr));
     
     /* Halt execution */
     exit(1);
