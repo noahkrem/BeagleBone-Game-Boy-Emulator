@@ -20,25 +20,21 @@
 #define LCD_PALETTE_ALL 0x30
 
 uint16_t fb[LCD_HEIGHT][LCD_WIDTH];
-uint16_t palette[3][4] = {  { 0x7FFF, 0x5294, 0x294A, 0x0000 },
-                            { 0x7FFF, 0x5294, 0x294A, 0x0000 },
-                            { 0x7FFF, 0x5294, 0x294A, 0x0000 }};
+const uint32_t palette[] = { 0xFFFFFF, 0xA5A5A5, 0x525252, 0x000000 };
 
 
 void lcd_draw_line(struct gb_s* gb, const uint8_t pixels[160], uint8_t line){
 
 
-    for(unsigned int x = 0; x < LCD_WIDTH; x++){
-		fb[line][x] = palette[(pixels[x] & LCD_PALETTE_ALL) >> 4][pixels[x] & 3];
-	}
+    for(unsigned int x = 0; x < LCD_WIDTH; x++) fb[line][x] = palette[pixels[x]];
 
     if(0){ gb->gb_frame = 0; } // placeholder
 }
 
 
 
-#define TEST_ROM_FILE "../rom/tetris.gb"
-#define TEST_DURATION 30
+#define TEST_ROM_FILE "../rom/fairylake.gb"
+#define TEST_DURATION 10
 
 int main(void) {
     
@@ -74,12 +70,15 @@ int main(void) {
     } else {
 
         gb->display.lcd_draw_line = lcd_draw_line;
+        gb->display.window_clear = 0;
+        gb->display.WY = 0;
 
         time_t start = time(NULL);
         while(time(NULL) - start < TEST_DURATION){
             gb->gb_frame = 0;
             while(!gb->gb_frame){
                 cpu_step(gb);
+                // usleep(100/4);
             }
             SDL_RenderClear(renderer);
             SDL_UpdateTexture(texture, NULL, fb, LCD_WIDTH * sizeof(uint16_t));
