@@ -70,8 +70,6 @@ int main(void) {
     } else {
 
         gb->display.lcd_draw_line = lcd_draw_line;
-        gb->display.window_clear = 0;
-        gb->display.WY = 0;
 
         time_t start = time(NULL);
         while(time(NULL) - start < TEST_DURATION){
