@@ -21,9 +21,25 @@ target_link_libraries(gbe_core PUBLIC hal)
 add_executable(gbe src/main.c)
 target_link_libraries(gbe PRIVATE gbe_core SDL3::SDL3)
 
-# Copy executable to final location (change the destination path as needed)
-add_custom_command(TARGET gbe POST_BUILD
-   COMMAND "${CMAKE_COMMAND}" -E copy
-      "$<TARGET_FILE:gbe>"
-      "~/ensc-351/public/proj/gbe"  # NOTE: CHANGE THIS TO YOUR NFS DIRECTORY
-   COMMENT "Copying ARM executable to public NFS directory")
+# NFS destination for copied executables. Make this a cache variable so it can
+# be overridden from the command line or the parent project. Example usage:
+#  -DGBE_NFS_DIR=/home/user/public/proj
+set(GBE_NFS_DIR "~/ensc351/public/proj" CACHE PATH "NFS directory to copy built executables to (optional)")
+
+if(GBE_NFS_DIR)
+   add_custom_command(TARGET gbe POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E copy
+         "$<TARGET_FILE:gbe>"
+         "${GBE_NFS_DIR}"
+      COMMENT "Copying gbe executable to NFS directory: ${GBE_NFS_DIR}")
+endif()
+
+# Also copy the ROM files directory to the NFS location so the device has access
+# to test ROMs. This creates `${GBE_NFS_DIR}/rom` and copies the contents of the
+# repository `rom/` directory into it. Use an absolute path for `GBE_NFS_DIR`.
+if(GBE_NFS_DIR)
+   add_custom_command(TARGET gbe POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${GBE_NFS_DIR}/rom"
+      COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/rom" "${GBE_NFS_DIR}"
+      COMMENT "Copying rom/ folder to NFS directory: ${GBE_NFS_DIR}/rom")
+endif()

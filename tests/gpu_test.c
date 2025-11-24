@@ -17,18 +17,24 @@ uint16_t fb[LCD_HEIGHT][LCD_WIDTH];
 const uint32_t palette[] = { 0xFFFFFF, 0xA5A5A5, 0x525252, 0x000000 };
 
 void lcd_draw_line(struct gb_s* gb, const uint8_t pixels[160], uint8_t line){
-    for(unsigned int x = 0; x < LCD_WIDTH; x++) fb[line][x] = palette[pixels[x]];
-    if(0){ gb->gb_frame = 0; } // placeholder
+    for (unsigned int x = 0; x < LCD_WIDTH; x++) {
+        fb[line][x] = palette[pixels[x]];
+    }
+    if (0) { gb->gb_frame = 0; } // placeholder
 }
 
-// #define TEST_ROM_FILE "../rom/fairylake.gb"
-#define TEST_ROM_FILE "fairylake.gb"
 #define TEST_DURATION 10
 
-int main(void) {
+int main(int argc, char **argv) {
     printf("====================================\n");
     printf("    Game Boy GPU Test\n");
     printf("====================================\n");
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <rom_filepath>\n", argv[0]);
+        return 1;
+    }
+    char *rom_path = argv[1];
 
     uint16_t frames = 0;
 
@@ -38,9 +44,8 @@ int main(void) {
     }
 
     // SDL3: SDL_CreateWindow(title, w, h, flags)
-    // No more WINDOWPOS_CENTERED args
     SDL_Window *window = SDL_CreateWindow("gpu test",
-                                          LCD_WIDTH*5, LCD_HEIGHT*5,
+                                          LCD_WIDTH * 5, LCD_HEIGHT * 5,
                                           SDL_WINDOW_RESIZABLE);
     if (!window) {
         fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -49,7 +54,6 @@ int main(void) {
     }
 
     // SDL3: SDL_CreateRenderer(window, name)
-    // Use NULL for default driver, no flags arg
     SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
     if (!renderer) {
         fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
@@ -74,21 +78,20 @@ int main(void) {
         return 1;
     }
 
-    struct gb_s* gb = bootloader(TEST_ROM_FILE);
-    if(!gb){
-        fprintf(stderr, "Failed to load ROM\n");
+    struct gb_s *gb = bootloader(rom_path);
+    if (!gb) {
+        fprintf(stderr, "Failed to load ROM: %s\n", rom_path);
     } else {
         gb->display.lcd_draw_line = lcd_draw_line;
         time_t start = time(NULL);
-        while(time(NULL) - start < TEST_DURATION){
+        while (time(NULL) - start < TEST_DURATION) {
             gb->gb_frame = 0;
-            while(!gb->gb_frame){ 
-                cpu_step(gb); 
+            while (!gb->gb_frame) {
+                cpu_step(gb);
             }
             SDL_RenderClear(renderer);
             SDL_UpdateTexture(texture, NULL, fb, LCD_WIDTH * sizeof(uint16_t));
-            SDL_FRect dst = {0, 0, LCD_WIDTH*5, LCD_HEIGHT*5};
-            // SDL3: SDL_RenderTexture replaces SDL_RenderCopy
+            SDL_FRect dst = {0, 0, LCD_WIDTH * 5, LCD_HEIGHT * 5};
             SDL_RenderTexture(renderer, texture, NULL, &dst);
             SDL_RenderPresent(renderer);
             frames++;
@@ -101,9 +104,9 @@ int main(void) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    
+
     free(gb);
     bootloader_cleanup();
-    
+
     return 0;
 }

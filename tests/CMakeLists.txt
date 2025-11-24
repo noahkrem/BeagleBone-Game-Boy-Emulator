@@ -28,6 +28,37 @@ else()
     )
 endif()
 
+# If an NFS directory is configured in the app module, copy the gpu_test
+# executable there as well (mirrors the behavior used for `gbe`). This step
+# runs only when the gpu_test target exists (SDL2 found) and `GBE_NFS_DIR` is
+# set (it defaults to the value from app/CMakeLists.txt but can be overridden
+# with -DGBE_NFS_DIR=/path/to/dir when invoking CMake).
+if(TARGET gpu_test AND GBE_NFS_DIR)
+    add_custom_command(TARGET gpu_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            "$<TARGET_FILE:gpu_test>"
+            "${GBE_NFS_DIR}"
+        COMMENT "Copying gpu_test executable to NFS directory: ${GBE_NFS_DIR}")
+endif()
+
+
+## Copy cpu_test and bootloader_test executables to the same NFS dir when available
+if(TARGET cpu_test AND GBE_NFS_DIR)
+    add_custom_command(TARGET cpu_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            "$<TARGET_FILE:cpu_test>"
+            "${GBE_NFS_DIR}"
+        COMMENT "Copying cpu_test executable to NFS directory: ${GBE_NFS_DIR}")
+endif()
+
+if(TARGET bootloader_test AND GBE_NFS_DIR)
+    add_custom_command(TARGET bootloader_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            "$<TARGET_FILE:bootloader_test>"
+            "${GBE_NFS_DIR}"
+        COMMENT "Copying bootloader_test executable to NFS directory: ${GBE_NFS_DIR}")
+endif()
+
 # Register tests with CTest
 add_test(
     NAME cpu_unit_tests
