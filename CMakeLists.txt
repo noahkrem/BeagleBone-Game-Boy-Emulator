@@ -22,8 +22,13 @@ add_link_options(-pthread)
 include(CTest)
 enable_testing()
 
+# SDL3
+find_package(SDL3 REQUIRED CONFIG
+    PATHS /opt/aarch64-sdl2/lib/cmake/SDL3
+    NO_DEFAULT_PATH
+)
+
 # What folders to build
 add_subdirectory(hal)
 add_subdirectory(app)
 add_subdirectory(tests)
-

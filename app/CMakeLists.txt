@@ -19,7 +19,7 @@ target_link_libraries(gbe_core PUBLIC hal)
 
 ## Build the final executable which links against the core library
 add_executable(gbe src/main.c)
-target_link_libraries(gbe PRIVATE gbe_core)
+target_link_libraries(gbe PRIVATE gbe_core SDL3::SDL3)
 
 # Copy executable to final location (change the destination path as needed)
 add_custom_command(TARGET gbe POST_BUILD

@@ -54,6 +54,13 @@ cmake --build build-aarch64
 ls build-aarch64/app/gbe
 ```
 
+Or, to compile the GPU test with SDL2:
+
+```bash
+cmake -S . -B build-aarch64 -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-toolchain.cmake -DCMAKE_PREFIX_PATH=/opt/aarch64-sdl2
+cmake --build build-aarch64
+```
+
 ### Important Notes!!
 - *If you are using NFS to share the executable with your BeagleBone, you should change the commented line in /app/CMakeLists.txt to correspond to your own NFS directory location!*
   - E.g. change from `~/ensc-351/public/proj/gbe` to `~/ENSC351/public/finalproject/github` or whatever your filepath may be.
