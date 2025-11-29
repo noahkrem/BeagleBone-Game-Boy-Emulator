@@ -12,6 +12,18 @@ void gpu_draw_line(struct gb_s *gb){
 	/* If LCD not initialised by front-end, don't render anything. */
 	if(gb->display.lcd_draw_line == NULL) return;
 
+	// DEBUG: print palette at start of frame
+    static int frame_count = 0;
+    if (frame_count == 0 && gb->hram_io[IO_LY] == 0) {
+        printf("PALETTE: BGP=0x%02X bg[0..3]=%u,%u,%u,%u\n",
+               gb->hram_io[IO_BGP],
+               gb->display.bg_palette[0],
+               gb->display.bg_palette[1],
+               gb->display.bg_palette[2],
+               gb->display.bg_palette[3]);
+        frame_count++;
+    }
+
 	// DEBUG: force visible output for this line
     for (int i = 0; i < LCD_WIDTH; i++) {
         pixels[i] = gb->display.bg_palette[3];  // or just 3 if you want raw index
@@ -43,8 +55,16 @@ void gpu_draw_line(struct gb_s *gb){
 		/* The X coordinate to begin drawing the background at. */
 		bg_x = disp_x + gb->hram_io[IO_SCX];
 
+
 		/* Get tile index for current background tile. */
 		idx = gb->vram[bg_map + (bg_x >> 3)];
+
+		// DEBUG: Check if we are fetching any non-zero tiles
+		if (gb->hram_io[IO_LY] == 80 && idx != 0) {
+			printf("LY=80 x=%u map=%04X idx=%02X\n", disp_x, bg_map, idx);
+		}
+
+
 		/* Y coordinate of tile pixel to draw. */
 		py = (bg_y & 0x07);
 		/* X coordinate of tile pixel to draw. */
@@ -61,6 +81,13 @@ void gpu_draw_line(struct gb_s *gb){
 		/* fetch first tile */
 		t1 = gb->vram[tile] >> px;
 		t2 = gb->vram[tile + 1] >> px;
+
+		if (gb->hram_io[IO_LY] == 80 && (t1 != 0 || t2 != 0)) {
+			printf("DEBUG: LY=80 tile data non-zero: t1=%02X t2=%02X\n", t1, t2);
+			printf("  raw: vram[0x%04X]=0x%02X vram[0x%04X]=0x%02X\n",
+           		tile, gb->vram[tile], tile+1, gb->vram[tile+1]);
+    		printf("  shifted: t1=0x%02X t2=0x%02X\n", t1, t2);
+		}
 
 		for(; disp_x != 0xFF; disp_x--){
 			uint8_t c;
@@ -227,17 +254,17 @@ void gpu_draw_line(struct gb_s *gb){
 	}
 
 	// DEBUG: inspect line contents for a few key lines
-    if (gb->hram_io[IO_LY] == 0 || gb->hram_io[IO_LY] == 80 || gb->hram_io[IO_LY] == 143) {
-        uint32_t sum = 0;
-        for (int x = 0; x < LCD_WIDTH; x++) {
-            sum += (pixels[x] & 0x03);
-        }
-        printf("DEBUG: GPU LINE %u: first=%u last=%u sum=%u\n",
-               gb->hram_io[IO_LY],
-               pixels[0] & 0x03,
-               pixels[LCD_WIDTH - 1] & 0x03,
-               sum);
-    }
+    // if (gb->hram_io[IO_LY] == 0 || gb->hram_io[IO_LY] == 80 || gb->hram_io[IO_LY] == 143) {
+    //     uint32_t sum = 0;
+    //     for (int x = 0; x < LCD_WIDTH; x++) {
+    //         sum += (pixels[x] & 0x03);
+    //     }
+    //     printf("DEBUG: GPU LINE %u: first=%u last=%u sum=%u\n",
+    //            gb->hram_io[IO_LY],
+    //            pixels[0] & 0x03,
+    //            pixels[LCD_WIDTH - 1] & 0x03,
+    //            sum);
+    // }
 
 	gb->display.lcd_draw_line(gb, pixels, gb->hram_io[IO_LY]);
 }
