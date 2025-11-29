@@ -414,12 +414,10 @@ struct gb_s* bootloader(char* rom_path) {
         return NULL;
     }
 
-    // Check for GameBoy Color cartridge, unsupported
+    // Check for GameBoy Color cartridge but don't reject, just warn
+    // Rejecting is too strict since many games are dual-compatible
     if (g_rom_data[ROM_HEADER_CGB_FLAG] & 0x80) {
-        printf("bootloader: GameBoy Color cartridges are unsupported\n");
-        free(g_rom_data);
-        g_rom_data = NULL;
-        return NULL;
+        printf("bootloader: CGB-compatible ROM detected (running in DMG mode)\n");
     }
 
     // Parse ROM header

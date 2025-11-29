@@ -76,25 +76,31 @@ uint8_t mmu_read(struct gb_s *gb, uint16_t addr) {
         return 0xFF;
     }
     
-    /* I/O Registers and High RAM (0xFF00 - 0xFFFF) */
+    // I/O Registers and High RAM (0xFF00 - 0xFFFF)
+    // Effectively the "no row selected" case for JOYP
+    // The JOYP register is a 2×4 matrix:
+    //   Bits 4–5 select which half (d‑pad vs buttons) the game wants.
+    //   Bits 0–3 return the state of that half (0 = pressed, 1 = released).
+    //   If neither bit 4 nor bit 5 is cleared (i.e., both are 1), the game hasn’t selected anything; 
+    //     conceptually, “no keys are being scanned” and you typically return all 1s (no key pressed).
     else {
         /* Special handling for joypad register */
         if (addr == 0xFF00) {
             uint8_t joyp = gb->hram_io[IO_JOYP];
+            uint8_t result = joyp | 0x0F;  // Start with low nibble = 1111 (all released)
             
             /* If direction keys selected (bit 4 = 0) */
             if ((joyp & 0x10) == 0) {
-                joyp |= (gb->direct.joypad >> 4) & 0x0F;
+                // AND with direction bits (right, left, up, down)
+                result &= (gb->direct.joypad >> 4) | 0xF0;
             }
             /* If button keys selected (bit 5 = 0) */
             else if ((joyp & 0x20) == 0) {
-                joyp |= gb->direct.joypad & 0x0F;
-            }
-            else {
-                joyp |= 0x0F;  /* No keys selected */
+                // AND with button bits (a, b, select, start)
+                result &= gb->direct.joypad | 0xF0;
             }
             
-            return joyp;
+            return result;
         }
         
         /* All other I/O and HRAM */

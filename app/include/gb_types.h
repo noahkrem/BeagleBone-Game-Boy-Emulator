@@ -5,8 +5,6 @@
  * 
  * Defines fundamental types, enums, and structures used across the emulator.
  * 
- * NOTES:
- * - Still need to figure out if LCD code applies to HDMI output or not.
  */
 
 #ifndef GB_TYPES_H

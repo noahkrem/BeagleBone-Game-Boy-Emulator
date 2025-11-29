@@ -71,15 +71,19 @@ void handle_input(emulator_state_t *emu, SDL_Event *event) {
                 /* Game Boy D-Pad */
                 case SDLK_UP:
                     emu->gb->direct.joypad_bits.up = 0;
+                    printf("DEBUG: UP pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 case SDLK_DOWN:
                     emu->gb->direct.joypad_bits.down = 0;
+                    printf("DEBUG: DOWN pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 case SDLK_LEFT:
                     emu->gb->direct.joypad_bits.left = 0;
+                    printf("DEBUG: LEFT pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 case SDLK_RIGHT:
                     emu->gb->direct.joypad_bits.right = 0;
+                    printf("DEBUG: RIGHT pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 
                 /* Game Boy Buttons */
@@ -265,7 +269,7 @@ void update_display(emulator_state_t *emu) {
 void emulator_loop(emulator_state_t *emu) {
     SDL_Event event;
     
-    printf("\n🎮 Starting emulation...\n");
+    printf("\nStarting emulation...\n");
     printf("Controls:\n");
     printf("  Arrow Keys = D-Pad\n");
     printf("  Z = A Button\n");
@@ -295,7 +299,7 @@ void emulator_loop(emulator_state_t *emu) {
         }
     }
     
-    printf("\n📊 Total frames rendered: %u\n", emu->frame_count);
+    printf("\nTotal frames rendered: %u\n", emu->frame_count);
 }
 
 /**
@@ -326,7 +330,7 @@ int main(int argc, char **argv) {
     }
     
     /* Load ROM via bootloader */
-    printf("📦 Loading ROM: %s\n", rom_path);
+    printf("Loading ROM: %s\n", rom_path);
     emu.gb = bootloader(rom_path);
     
     if (!emu.gb) {
@@ -347,13 +351,13 @@ int main(int argc, char **argv) {
     emulator_loop(&emu);
     
     /* Cleanup */
-    printf("\n🧹 Cleaning up...\n");
+    printf("\nCleaning up...\n");
     free(emu.gb);
     bootloader_cleanup();
     cleanup_sdl(&emu);
     
     printf("✓ Cleanup complete\n");
-    printf("\n👋 Goodbye!\n");
+    printf("\nGoodbye!\n");
     
     return 0;
 }
