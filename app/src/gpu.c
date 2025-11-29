@@ -190,38 +190,87 @@ void gpu_draw_line(struct gb_s *gb){
 			t2 = gb->vram[VRAM_TILES_1 + OT * 0x10 + 2 * py + 1];
 
 			// handle x flip
-			if(OF & OBJ_FLIP_X){
-				dir = 1;
+			// handle x flip and draw sprite pixels
+			if (OF & OBJ_FLIP_X) {
+				/* Sprite is flipped horizontally: draw left -> right. */
+				dir   = 1;
 				start = (OX < 8 ? 0 : OX - 8);
-				end = MIN(OX, LCD_WIDTH);
+				end   = MIN(OX, LCD_WIDTH);
 				shift = 8 - OX + start;
-			} else {
-				dir = (uint8_t)-1;
-				start = MIN(OX, LCD_WIDTH) - 1;
-				end = (OX < 8 ? 0 : OX - 8) - 1;
-				shift = OX - (start + 1);
-			}
 
-			// copy tile
-			t1 >>= shift;
-			t2 >>= shift;
+				/* Align tile bits with the first on-screen pixel. */
+				t1 >>= shift;
+				t2 >>= shift;
 
-			/*
-			 * TODO: Put for loop within the to if statements
-			 * because the BG priority bit will be the same for
-			 * all the pixels in the tile. 
-			 */
-			for(disp_x = start; disp_x != end; disp_x += dir){
-				uint8_t c = (t1 & 0x1) | ((t2 & 0x1) << 1);
-				// check transparency / sprite overlap / background overlap
+				if (OF & OBJ_PRIORITY) {
+					/* Behind background: only draw over BG colour 0. */
+					for (disp_x = start; disp_x != end; disp_x += dir) {
+						uint8_t c = (t1 & 0x1) | ((t2 & 0x1) << 1);
 
-				if(c && !(OF & OBJ_PRIORITY && !((pixels[disp_x] & 0x3) == gb->display.bg_palette[0]))){
-					/* Set pixel colour. */
-					pixels[disp_x] = (OF & OBJ_PALETTE) ? gb->display.sp_palette[c + 4] : gb->display.sp_palette[c];
+						if (c && ((pixels[disp_x] & 0x3) == gb->display.bg_palette[0])) {
+							pixels[disp_x] = (OF & OBJ_PALETTE)
+											? gb->display.sp_palette[c + 4]
+											: gb->display.sp_palette[c];
+						}
+
+						t1 >>= 1;
+						t2 >>= 1;
+					}
+				} else {
+					/* In front of background: any non-zero sprite pixel wins. */
+					for (disp_x = start; disp_x != end; disp_x += dir) {
+						uint8_t c = (t1 & 0x1) | ((t2 & 0x1) << 1);
+
+						if (c) {
+							pixels[disp_x] = (OF & OBJ_PALETTE)
+											? gb->display.sp_palette[c + 4]
+											: gb->display.sp_palette[c];
+						}
+
+						t1 >>= 1;
+						t2 >>= 1;
+					}
 				}
+			} else {
+				/* Not flipped: draw right -> left. */
+				dir   = (uint8_t)-1;
+				start = MIN(OX, LCD_WIDTH) - 1;
+				end   = (OX < 8 ? 0 : OX - 8) - 1;
+				shift = OX - (start + 1);
 
-				t1 >>= 1;
-				t2 >>= 1;
+				/* Align tile bits with the first on-screen pixel. */
+				t1 >>= shift;
+				t2 >>= shift;
+
+				if (OF & OBJ_PRIORITY) {
+					/* Behind background: only draw over BG colour 0. */
+					for (disp_x = start; disp_x != end; disp_x += dir) {
+						uint8_t c = (t1 & 0x1) | ((t2 & 0x1) << 1);
+
+						if (c && ((pixels[disp_x] & 0x3) == gb->display.bg_palette[0])) {
+							pixels[disp_x] = (OF & OBJ_PALETTE)
+											? gb->display.sp_palette[c + 4]
+											: gb->display.sp_palette[c];
+						}
+
+						t1 >>= 1;
+						t2 >>= 1;
+					}
+				} else {
+					/* In front of background: any non-zero sprite pixel wins. */
+					for (disp_x = start; disp_x != end; disp_x += dir) {
+						uint8_t c = (t1 & 0x1) | ((t2 & 0x1) << 1);
+
+						if (c) {
+							pixels[disp_x] = (OF & OBJ_PALETTE)
+											? gb->display.sp_palette[c + 4]
+											: gb->display.sp_palette[c];
+						}
+
+						t1 >>= 1;
+						t2 >>= 1;
+					}
+				}
 			}
 		}
 	}
