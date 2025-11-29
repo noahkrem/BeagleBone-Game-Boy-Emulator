@@ -6,10 +6,16 @@
 
 void gpu_draw_line(struct gb_s *gb){
 
+	// Per-line buffer (2‑bit color indices 0–3)
 	uint8_t pixels[160] = {0};
 
 	/* If LCD not initialised by front-end, don't render anything. */
 	if(gb->display.lcd_draw_line == NULL) return;
+
+	// DEBUG: force visible output for this line
+    for (int i = 0; i < LCD_WIDTH; i++) {
+        pixels[i] = gb->display.bg_palette[3];  // or just 3 if you want raw index
+    }
 
 	/* If background is enabled, draw it. */
 	if(gb->hram_io[IO_LCDC] & LCDC_BG_ENABLE){
@@ -219,6 +225,19 @@ void gpu_draw_line(struct gb_s *gb){
 			}
 		}
 	}
+
+	// DEBUG: inspect line contents for a few key lines
+    if (gb->hram_io[IO_LY] == 0 || gb->hram_io[IO_LY] == 80 || gb->hram_io[IO_LY] == 143) {
+        uint32_t sum = 0;
+        for (int x = 0; x < LCD_WIDTH; x++) {
+            sum += (pixels[x] & 0x03);
+        }
+        printf("DEBUG: GPU LINE %u: first=%u last=%u sum=%u\n",
+               gb->hram_io[IO_LY],
+               pixels[0] & 0x03,
+               pixels[LCD_WIDTH - 1] & 0x03,
+               sum);
+    }
 
 	gb->display.lcd_draw_line(gb, pixels, gb->hram_io[IO_LY]);
 }

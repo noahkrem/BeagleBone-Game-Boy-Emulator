@@ -307,6 +307,9 @@ struct gb_s {
 
     struct counter_s counter;
 
+    // Frame debug counter (for logging)
+    uint32_t frame_debug;
+
     // ----- Memory Arrays -----
     
     uint8_t wram[WRAM_SIZE];        // Work RAM

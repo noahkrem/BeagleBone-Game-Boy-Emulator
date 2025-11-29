@@ -243,6 +243,14 @@ uint16_t cpu_step(struct gb_s *gb) {
     /* Fetch opcode */
     opcode = mmu_read(gb, gb->cpu_reg.pc.reg++);
     cycles = OPCODE_CYCLES[opcode];
+    // uint16_t pc = gb->cpu_reg.pc.reg; // For debugging output
+
+    // printf("DEBUG: PC=%04X opcode=%02X cycles=%u lcd_count=%u LY=%u\n",
+    //    (unsigned)pc,
+    //    opcode,
+    //    cycles,
+    //    gb->counter.lcd_count,
+    //    gb->hram_io[IO_LY]);
     
     /* Execute opcode */
     switch (opcode) {
@@ -1044,7 +1052,19 @@ uint16_t cpu_step(struct gb_s *gb) {
         /* Next line */
         gb->hram_io[IO_LY]++;
 
-        if(gb->hram_io[IO_LY] == LCD_VERT_LINES) gb->hram_io[IO_LY] = 0;
+        if(gb->hram_io[IO_LY] == LCD_VERT_LINES) {
+            gb->hram_io[IO_LY] = 0;
+            printf("DEBUG: LY wrapped to 0 (end of frame)\n");
+        }
+
+        // LY + mode debug for first few frames
+        if (gb->frame_debug < 5 && gb->hram_io[IO_LY] == 0) {
+            printf("DEBUG: Frame %u start: LY=%u mode=%u lcd_count=%u\n",
+                gb->frame_debug,
+                gb->hram_io[IO_LY],
+                gb->hram_io[IO_STAT] & STAT_MODE,
+                gb->counter.lcd_count);
+        }
 
         /* LYC Update */
         if(gb->hram_io[IO_LY] == gb->hram_io[IO_LYC]){
@@ -1064,6 +1084,8 @@ uint16_t cpu_step(struct gb_s *gb) {
 
             if(gb->hram_io[IO_STAT] & STAT_MODE_1_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
 
+            gb->frame_debug++;   // increment once per frame
+
         /* Start of normal Line (not in VBLANK) */
         } else if(gb->hram_io[IO_LY] < LCD_HEIGHT){ 
             if(gb->hram_io[IO_LY] == 0){
@@ -1078,10 +1100,15 @@ uint16_t cpu_step(struct gb_s *gb) {
             if(gb->hram_io[IO_STAT] & STAT_MODE_2_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
         }
 
-    /* Go from Mode 3 (LCD Draw) to Mode 0 (HBLANK). */
+    // Go from Mode 3 (LCD Draw) to Mode 0 (HBLANK).
+    // Bugfix: Moved gpu_draw_line() callback to the correct place in the code.
+    //   The gpu_draw_line() function doesn't do the actual PPU math;
+    //   it assumes that the PPU has already rendered that scanline into pixels[160].
     } else if((gb->hram_io[IO_STAT] & STAT_MODE) == LCD_MODE_LCD_DRAW  && 
                 gb->counter.lcd_count >= LCD_MODE3_LCD_DRAW_END){ 
         gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_HBLANK;
+
+        if(!gb->lcd_blank) gpu_draw_line(gb);
 
         if(gb->hram_io[IO_STAT] & STAT_MODE_0_INTR) gb->hram_io[IO_IF] |= LCDC_INTR;
 
@@ -1089,9 +1116,9 @@ uint16_t cpu_step(struct gb_s *gb) {
     } else if((gb->hram_io[IO_STAT] & STAT_MODE) == LCD_MODE_OAM_SCAN &&
                 gb->counter.lcd_count >= LCD_MODE2_OAM_SCAN_END){
         gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_LCD_DRAW;
-
-        if(!gb->lcd_blank) gpu_draw_line(gb);
+        // Remove gpu_draw_line() from here
     }
+
 
     return cycles;
 }

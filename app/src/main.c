@@ -344,6 +344,9 @@ int main(int argc, char **argv) {
     
     /* Initialize joypad to "all buttons released" state */
     emu.gb->direct.joypad = 0xFF;
+
+    // Initialize frame debug counter
+    emu.gb->frame_debug = 0;
     
     printf("✓ ROM loaded successfully\n");
     
