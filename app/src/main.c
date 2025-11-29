@@ -23,11 +23,17 @@ int main(int argc, char **argv) {
 
     // Run emulator
     while (!gb->gb_halt) {
-        cpu_step(gb);
+
+        // step through CPU cycles until a complete frame is ready to be displayed
+        while (!gb->gb_frame) {
+                cpu_step(gb);
+            }
+        gpu_display_frame();
     }
 
     // Clean up
     bootloader_cleanup();
+    gpu_cleanup();
     free(gb);
     
     return 0;

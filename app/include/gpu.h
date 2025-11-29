@@ -18,6 +18,9 @@
 #define LCD_MODE2_OAM_SCAN_END  (LCD_MODE2_OAM_SCAN_DURATION)
 #define LCD_MODE3_LCD_DRAW_END  (LCD_MODE2_OAM_SCAN_END + LCD_MODE3_LCD_DRAW_MIN_DURATION)
 
+void gpu_init();
 void gpu_draw_line(struct gb_s *gb);
+void gpu_display_frame();
+void gpu_cleanup();
 
 #endif

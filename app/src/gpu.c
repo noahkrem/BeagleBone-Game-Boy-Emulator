@@ -1,8 +1,70 @@
 #include "gpu.h"
 #include "gb_types.h"
+#include <SDL3/SDL.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+
+static SDL_Window* window = NULL;
+static SDL_Renderer* renderer = NULL;
+static SDL_Texture* texture = NULL;
+
+static void lcd_draw_line(struct gb_s* gb, const uint8_t pixels[160], uint8_t line){
+    for (unsigned int x = 0; x < LCD_WIDTH; x++) {
+        fb[line][x] = palette[pixels[x]];
+    }
+    if (0) { gb->gb_frame = 0; } // placeholder
+}
+
+void gpu_init(struct gb_s* gb){
+	
+	// initilalize frame ready flag to zero
+	gb->gb_frame = 0; 
+
+	// pass the function pointer for the lcd_draw_line function to the gb struct 
+	gb->display.lcd_draw_line = lcd_draw_line;
+
+	// Initialize SDL3
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    // SDL3: SDL_CreateWindow(title, w, h, flags)
+    window = SDL_CreateWindow("gpu test",
+                                          LCD_WIDTH * 5, LCD_HEIGHT * 5,
+                                          SDL_WINDOW_RESIZABLE);
+    if (!window) {
+        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    // SDL3: SDL_CreateRenderer(window, name)
+    renderer = SDL_CreateRenderer(window, NULL);
+    if (!renderer) {
+        fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+
+    // Enable VSync via property
+    SDL_SetRenderVSync(renderer, 1);
+
+    // SDL3: SDL_PIXELFORMAT_XRGB1555 replaces SDL_PIXELFORMAT_RGB555
+    texture = SDL_CreateTexture(renderer,
+                                             SDL_PIXELFORMAT_XRGB1555,
+                                             SDL_TEXTUREACCESS_STREAMING,
+                                             LCD_WIDTH, LCD_HEIGHT);
+    if (!texture) {
+        fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+}
 
 void gpu_draw_line(struct gb_s *gb){
 
@@ -221,4 +283,19 @@ void gpu_draw_line(struct gb_s *gb){
 	}
 
 	gb->display.lcd_draw_line(gb, pixels, gb->hram_io[IO_LY]);
+}
+
+void gpu_display_frame(){
+	SDL_RenderClear(renderer);
+	SDL_UpdateTexture(texture, NULL, fb, LCD_WIDTH * sizeof(uint16_t));
+	SDL_FRect dst = {0, 0, LCD_WIDTH * 5, LCD_HEIGHT * 5};
+	SDL_RenderTexture(renderer, texture, NULL, &dst);
+	SDL_RenderPresent(renderer);
+}
+
+void gpu_cleanup(){
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 }
