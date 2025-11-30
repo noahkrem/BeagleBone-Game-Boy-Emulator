@@ -6,6 +6,14 @@
 
 void gpu_draw_line(struct gb_s *gb){
 
+	if (gb->frame_debug < 5 && gb->hram_io[IO_LY] == 0) {
+		printf("DEBUG FRAME %u: LCDC=0x%02X LY=%u mode=%u\n",
+			gb->frame_debug,
+			gb->hram_io[IO_LCDC],
+			gb->hram_io[IO_LY],
+			gb->hram_io[IO_STAT] & 0x03);
+	}
+
 	// Per-line buffer (2‑bit color indices 0–3)
 	uint8_t pixels[160] = {0};
 
@@ -15,13 +23,22 @@ void gpu_draw_line(struct gb_s *gb){
     /* Render unless LCD is completely disabled (0x00) */
 	if (gb->hram_io[IO_LCDC] == 0x00) return;
 
-    /* DEBUG: print LCDC bits at start of first few frames */
-    if (gb->frame_debug < 3 && gb->hram_io[IO_LY] == 0) {
-        printf("DEBUG LCDC BITS: BG_ENABLE=%u TILE_SELECT=%u BG_MAP=%u\n",
-               (gb->hram_io[IO_LCDC] & LCDC_BG_ENABLE) ? 1 : 0,
-               (gb->hram_io[IO_LCDC] & LCDC_TILE_SELECT) ? 1 : 0,
-               (gb->hram_io[IO_LCDC] & LCDC_BG_MAP) ? 1 : 0);
-    }
+    // DEBUG: Check if ANY tile data exists in VRAM
+	if (gb->frame_debug < 2 && gb->hram_io[IO_LY] == 0) {
+		int non_zero_tiles = 0;
+		for (int i = 0; i < 0x1800; i++) {  // Check tile data area
+			if (gb->vram[i] != 0) non_zero_tiles++;
+		}
+		printf("DEBUG: Non-zero VRAM bytes in tile area: %d / %d\n", 
+			non_zero_tiles, 0x1800);
+		
+		// Check tilemap
+		int non_zero_map = 0;
+		for (int i = 0x1800; i < 0x1C00; i++) {  // Tilemap 0
+			if (gb->vram[i] != 0) non_zero_map++;
+		}
+		printf("DEBUG: Non-zero tilemap entries: %d / 1024\n", non_zero_map);
+	}
 
 	/* If LCD not initialised by front-end, don't render anything. */
 	if(gb->display.lcd_draw_line == NULL) return;
@@ -78,6 +95,13 @@ void gpu_draw_line(struct gb_s *gb){
 				bg_map,
 				bg_y,
 				gb->vram[bg_map + ((159 + gb->hram_io[IO_SCX]) >> 3)]);
+		}
+
+		if (gb->hram_io[IO_LY] == 144) {
+			printf("DEBUG: LY=144, setting VBLANK interrupt. IF before=%02X\n", 
+				gb->hram_io[IO_IF]);
+			gb->hram_io[IO_IF] |= 0x01;  // Set VBLANK interrupt
+			printf("DEBUG: IF after=%02X\n", gb->hram_io[IO_IF]);
 		}
 
 		/* The displays (what the player sees) X coordinate, drawn right to left. */
@@ -149,10 +173,10 @@ void gpu_draw_line(struct gb_s *gb){
 			c = (t1 & 0x1) | ((t2 & 0x1) << 1);
 			pixels[disp_x] = gb->display.bg_palette[c];
 
-			if (gb->hram_io[IO_LY] == 80 && disp_x > 140 && disp_x <= 159) {
-				printf("DEBUG: LY=80 x=%3u c=%u bgpix=%u\n",
-					disp_x, c, pixels[disp_x]);
-			}
+			// if (gb->hram_io[IO_LY] == 80 && disp_x > 140 && disp_x <= 159) {
+			// 	printf("DEBUG: LY=80 x=%3u c=%u bgpix=%u\n",
+			// 		disp_x, c, pixels[disp_x]);
+			// }
 
 			t1 >>= 1;
 			t2 >>= 1;

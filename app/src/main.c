@@ -140,12 +140,6 @@ void handle_input(emulator_state_t *emu, SDL_Event *event) {
                 case SDLK_F:
                     printf("Frames: %u\n", emu->frame_count);
                     break;
-
-                // /* DEBUG: force all pixels black */
-                // case SDLK_b:
-                //     printf("DEBUG: Forcing BGP = 0xFF (all BG shades -> black)\n");
-                //     mmu_write(emu->gb, 0xFF47, 0xFF);
-                //     break;
             }
 
             if (joy_debug < 20) {
@@ -374,22 +368,29 @@ int main(int argc, char **argv) {
         return 1;
     }
     
+    
     /* Force LCDC to a known good state for game startup */
     // emu.gb->hram_io[IO_LCDC] = 0x91;  /* LCD on, BG on, window off, tiles 0x8000, BG map 0x9C00 */
     // emu.gb->hram_io[IO_STAT] = (emu.gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
     // emu.gb->hram_io[IO_LY] = 0;
     // emu.gb->counter.lcd_count = 0;
-
+    
     /* Set up LCD draw callback */
     emu.gb->display.lcd_draw_line = lcd_draw_line;
     
     /* Initialize joypad to "all buttons released" state */
     emu.gb->direct.joypad = 0xFF;
-
+    
     // Initialize frame debug counter
     emu.gb->frame_debug = 0;
     
     printf("✓ ROM loaded successfully\n");
+
+    printf("Running initial frames to let ROM initialize...\n");
+    for (int i = 0; i < 10; i++) {
+        run_frame(&emu);
+    }
+    printf("Initial frames complete, starting display...\n");
     
     /* Run main emulation loop */
     emulator_loop(&emu);

@@ -157,6 +157,13 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
     /* Video RAM (0x8000 - 0x9FFF) */
     else if (addr < 0xA000) {
         gb->vram[addr - 0x8000] = val;
+
+        // DEBUG: Log first few VRAM writes
+        static int vram_write_count = 0;
+        if (vram_write_count < 20) {
+            printf("VRAM WRITE: addr=0x%04X val=0x%02X\n", addr, val);
+            vram_write_count++;
+        }
     }
     
     /* External RAM (0xA000 - 0xBFFF) */

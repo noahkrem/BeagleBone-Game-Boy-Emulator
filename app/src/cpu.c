@@ -74,6 +74,10 @@ void cpu_handle_interrupts(struct gb_s* gb) {
     
     // Jump to interrupt handler based on priority
     if (interrupts & 0x01) {            // VBLANK
+        static int vblank_count = 0;
+        if (vblank_count < 10) {
+            printf("DEBUG: VBLANK interrupt fired! count=%d\n", vblank_count++);
+        }
         gb->cpu_reg.pc.reg = 0x0040;
         gb->hram_io[IO_IF] &= ~0x01;
     } else if (interrupts & 0x02) {     // LCD STATs
@@ -254,8 +258,8 @@ uint16_t cpu_step(struct gb_s *gb) {
     //    gb->hram_io[IO_LY]);
 
     if (gb->hram_io[IO_LY] == 0 && gb->frame_debug < 10 && instr_debug < 50) {
-        printf("CPU HEARTBEAT: frame=%u PC=%04X opcode=%02X LY=%u\n",
-            gb->frame_debug, pc, opcode, gb->hram_io[IO_LY]);
+        printf("CPU HEARTBEAT: frame=%u PC=%04X opcode=%02X LY=%u IME=%d IF=%02X IE=%02X\n",
+            gb->frame_debug, pc, opcode, gb->hram_io[IO_LY], gb->gb_ime, gb->hram_io[IO_IF], gb->hram_io[IO_IE]);
         instr_debug++;
     }
     
