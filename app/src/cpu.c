@@ -17,8 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static uint32_t instr_debug = 0;
-
 // Cycle counts for each opcode (0x00-0xFF)
 // Directly mirrors the timing of the original hardware.
 // This is important for things like game logic synchronization:
@@ -74,10 +72,6 @@ void cpu_handle_interrupts(struct gb_s* gb) {
     
     // Jump to interrupt handler based on priority
     if (interrupts & 0x01) {            // VBLANK
-        static int vblank_count = 0;
-        if (vblank_count < 10) {
-            printf("DEBUG: VBLANK interrupt fired! count=%d\n", vblank_count++);
-        }
         gb->cpu_reg.pc.reg = 0x0040;
         gb->hram_io[IO_IF] &= ~0x01;
     } else if (interrupts & 0x02) {     // LCD STATs
@@ -248,20 +242,6 @@ uint16_t cpu_step(struct gb_s *gb) {
     /* Fetch opcode */
     opcode = mmu_read(gb, gb->cpu_reg.pc.reg++);
     cycles = OPCODE_CYCLES[opcode];
-    uint16_t pc = gb->cpu_reg.pc.reg; // For debugging output
-
-    // printf("DEBUG: PC=%04X opcode=%02X cycles=%u lcd_count=%u LY=%u\n",
-    //    (unsigned)pc,
-    //    opcode,
-    //    cycles,
-    //    gb->counter.lcd_count,
-    //    gb->hram_io[IO_LY]);
-
-    if (gb->hram_io[IO_LY] == 0 && gb->frame_debug < 10 && instr_debug < 50) {
-        printf("CPU HEARTBEAT: frame=%u PC=%04X opcode=%02X LY=%u IME=%d IF=%02X IE=%02X\n",
-            gb->frame_debug, pc, opcode, gb->hram_io[IO_LY], gb->gb_ime, gb->hram_io[IO_IF], gb->hram_io[IO_IE]);
-        instr_debug++;
-    }
     
     /* Execute opcode */
     switch (opcode) {
@@ -1062,20 +1042,6 @@ uint16_t cpu_step(struct gb_s *gb) {
 
         /* Next line */
         gb->hram_io[IO_LY]++;
-
-        // if(gb->hram_io[IO_LY] == LCD_VERT_LINES) {
-        //     gb->hram_io[IO_LY] = 0;
-        //     printf("DEBUG: LY wrapped to 0 (end of frame)\n");
-        // }
-
-        // LY + mode debug for first few frames
-        if (gb->frame_debug < 5 && gb->hram_io[IO_LY] == 0) {
-            printf("DEBUG: Frame %u start: LY=%u mode=%u lcd_count=%u\n",
-                gb->frame_debug,
-                gb->hram_io[IO_LY],
-                gb->hram_io[IO_STAT] & STAT_MODE,
-                gb->counter.lcd_count);
-        }
 
         /* LYC Update */
         if(gb->hram_io[IO_LY] == gb->hram_io[IO_LYC]){

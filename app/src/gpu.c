@@ -5,15 +5,6 @@
 #include <stdlib.h>
 
 void gpu_draw_line(struct gb_s *gb){
-
-	if (gb->frame_debug < 5 && gb->hram_io[IO_LY] == 0) {
-		printf("DEBUG FRAME %u: LCDC=0x%02X LY=%u mode=%u\n",
-			gb->frame_debug,
-			gb->hram_io[IO_LCDC],
-			gb->hram_io[IO_LY],
-			gb->hram_io[IO_STAT] & 0x03);
-	}
-
 	// Per-line buffer (2‑bit color indices 0–3)
 	uint8_t pixels[160] = {0};
 
@@ -114,11 +105,6 @@ void gpu_draw_line(struct gb_s *gb){
 		/* Get tile index for current background tile. */
 		idx = gb->vram[bg_map + (bg_x >> 3)];
 
-		// DEBUG: Check if we are fetching any non-zero tiles
-		if (gb->hram_io[IO_LY] == 80 && idx != 0) {
-			printf("LY=80 x=%u map=%04X idx=%02X\n", disp_x, bg_map, idx);
-		}
-
 
 		/* Y coordinate of tile pixel to draw. */
 		py = (bg_y & 0x07);
@@ -141,14 +127,6 @@ void gpu_draw_line(struct gb_s *gb){
 		/* fetch first tile */
 		t1 = gb->vram[tile] >> px;
 		t2 = gb->vram[tile + 1] >> px;
-
-		// DEBUG: Check VRAM tile data
-		if (gb->hram_io[IO_LY] == 80 && (t1 != 0 || t2 != 0)) {
-			printf("DEBUG: LY=80 tile data non-zero: t1=%02X t2=%02X\n", t1, t2);
-			printf("  raw: vram[0x%04X]=0x%02X vram[0x%04X]=0x%02X\n",
-           		tile, gb->vram[tile], tile+1, gb->vram[tile+1]);
-    		printf("  shifted: t1=0x%02X t2=0x%02X\n", t1, t2);
-		}
 
 		for(; disp_x != 0xFF; disp_x--){
 			uint8_t c;

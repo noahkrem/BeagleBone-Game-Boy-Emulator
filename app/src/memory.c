@@ -25,12 +25,18 @@ uint8_t mmu_read(struct gb_s *gb, uint16_t addr) {
         return gb->gb_rom_read(gb, addr);
     }
     
-    /* ROM Bank N (0x4000 - 0x7FFF) - Switchable */
+    // ROM Bank N (0x4000 - 0x7FFF) - Switchable 
+    // Bugfix: This code previously used the wrong calculation for the ROM address for ROM bank 1.
+    //   The fix was to update the formula to "ROM Address = CPU Address + (Selected Bank - 1) * Bank Size".
+    //   This formula includes the correct base offset for ROM bank 1, enabling us to read the correct data 
+    //   relative to the start of the ROM file.
     else if (addr < 0x8000) {
         /* Calculate offset based on selected bank */
-        uint32_t offset = addr - 0x4000;
-        uint32_t rom_addr = offset + ((gb->selected_rom_bank - 1) * ROM_BANK_SIZE);
-        return gb->gb_rom_read(gb, rom_addr);
+        if(gb->mbc == 1 && gb->cart_mode_select){
+			return gb->gb_rom_read(gb, addr + ((gb->selected_rom_bank & 0x1F) - 1) * ROM_BANK_SIZE);
+        } else {
+			return gb->gb_rom_read(gb, addr + (gb->selected_rom_bank - 1) * ROM_BANK_SIZE);
+        }
     }
     
     /* Video RAM (0x8000 - 0x9FFF) */

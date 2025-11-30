@@ -18,9 +18,6 @@
 #include "rom.h"
 
 
-/* Debug counters */
-static uint32_t joy_debug = 0;
-
 /* Display scaling factor */
 #define SCALE_FACTOR 5
 
@@ -140,12 +137,6 @@ void handle_input(emulator_state_t *emu, SDL_Event *event) {
                 case SDLK_F:
                     printf("Frames: %u\n", emu->frame_count);
                     break;
-            }
-
-            if (joy_debug < 20) {
-                printf("DEBUG JOY CHANGE: joypad=0x%02X frame=%u\n",
-                    emu->gb->direct.joypad, emu->frame_count);
-                joy_debug++;
             }
             break;
             
