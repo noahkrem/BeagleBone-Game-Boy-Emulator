@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static uint32_t instr_debug = 0;
 
 // Cycle counts for each opcode (0x00-0xFF)
 // Directly mirrors the timing of the original hardware.
@@ -243,7 +244,7 @@ uint16_t cpu_step(struct gb_s *gb) {
     /* Fetch opcode */
     opcode = mmu_read(gb, gb->cpu_reg.pc.reg++);
     cycles = OPCODE_CYCLES[opcode];
-    // uint16_t pc = gb->cpu_reg.pc.reg; // For debugging output
+    uint16_t pc = gb->cpu_reg.pc.reg; // For debugging output
 
     // printf("DEBUG: PC=%04X opcode=%02X cycles=%u lcd_count=%u LY=%u\n",
     //    (unsigned)pc,
@@ -251,6 +252,12 @@ uint16_t cpu_step(struct gb_s *gb) {
     //    cycles,
     //    gb->counter.lcd_count,
     //    gb->hram_io[IO_LY]);
+
+    if (gb->hram_io[IO_LY] == 0 && gb->frame_debug < 10 && instr_debug < 50) {
+        printf("CPU HEARTBEAT: frame=%u PC=%04X opcode=%02X LY=%u\n",
+            gb->frame_debug, pc, opcode, gb->hram_io[IO_LY]);
+        instr_debug++;
+    }
     
     /* Execute opcode */
     switch (opcode) {
@@ -1052,10 +1059,10 @@ uint16_t cpu_step(struct gb_s *gb) {
         /* Next line */
         gb->hram_io[IO_LY]++;
 
-        if(gb->hram_io[IO_LY] == LCD_VERT_LINES) {
-            gb->hram_io[IO_LY] = 0;
-            printf("DEBUG: LY wrapped to 0 (end of frame)\n");
-        }
+        // if(gb->hram_io[IO_LY] == LCD_VERT_LINES) {
+        //     gb->hram_io[IO_LY] = 0;
+        //     printf("DEBUG: LY wrapped to 0 (end of frame)\n");
+        // }
 
         // LY + mode debug for first few frames
         if (gb->frame_debug < 5 && gb->hram_io[IO_LY] == 0) {

@@ -17,6 +17,10 @@
 #include "memory.h"
 #include "rom.h"
 
+
+/* Debug counters */
+static uint32_t joy_debug = 0;
+
 /* Display scaling factor */
 #define SCALE_FACTOR 5
 
@@ -50,10 +54,29 @@ typedef struct {
  * This matches Peanut-GB's lcd_draw_line signature
  */
 void lcd_draw_line(struct gb_s *gb, const uint8_t pixels[160], uint8_t line) {
-    (void)gb; /* Unused parameter */
-    
+    (void)gb; // Unused parameter
+
     for (unsigned int x = 0; x < LCD_WIDTH; x++) {
-        fb[line][x] = palette[pixels[x] & 0x03];
+        // 2-bit DMG colour index 0–3 from PPU
+        uint8_t idx = pixels[x] & 0x03;
+
+        // 24-bit RGB from our DMG palette (0xRRGGBB) /
+        uint32_t rgb = palette[idx];
+
+        // Extract 8-bit components /
+        uint8_t r8 = (rgb >> 16) & 0xFF;
+        uint8_t g8 = (rgb >> 8)  & 0xFF;
+        uint8_t b8 =  rgb        & 0xFF;
+
+        // Convert 8-bit → 5-bit for XRGB1555 /
+        uint16_t r5 = r8 >> 3;   // keep top 5 bits /
+        uint16_t g5 = g8 >> 3;
+        uint16_t b5 = b8 >> 3;
+
+        // Pack into XRGB1555: x rrrrr ggggg bbbbb */
+        uint16_t pixel1555 = (uint16_t)((r5 << 10) | (g5 << 5) | b5);
+
+        fb[line][x] = pixel1555;
     }
 }
 
@@ -110,13 +133,25 @@ void handle_input(emulator_state_t *emu, SDL_Event *event) {
                     printf("%s\n", emu->paused ? "⏸  Paused" : "▶  Resumed");
                     break;
                 case SDLK_R:
-                    printf("🔄 Reset\n");
+                    printf("Reset\n");
                     cpu_reset(emu->gb);
                     mmu_reset(emu->gb);
                     break;
                 case SDLK_F:
-                    printf("📊 Frames: %u\n", emu->frame_count);
+                    printf("Frames: %u\n", emu->frame_count);
                     break;
+
+                // /* DEBUG: force all pixels black */
+                // case SDLK_b:
+                //     printf("DEBUG: Forcing BGP = 0xFF (all BG shades -> black)\n");
+                //     mmu_write(emu->gb, 0xFF47, 0xFF);
+                //     break;
+            }
+
+            if (joy_debug < 20) {
+                printf("DEBUG JOY CHANGE: joypad=0x%02X frame=%u\n",
+                    emu->gb->direct.joypad, emu->frame_count);
+                joy_debug++;
             }
             break;
             
@@ -339,6 +374,12 @@ int main(int argc, char **argv) {
         return 1;
     }
     
+    /* Force LCDC to a known good state for game startup */
+    // emu.gb->hram_io[IO_LCDC] = 0x91;  /* LCD on, BG on, window off, tiles 0x8000, BG map 0x9C00 */
+    // emu.gb->hram_io[IO_STAT] = (emu.gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
+    // emu.gb->hram_io[IO_LY] = 0;
+    // emu.gb->counter.lcd_count = 0;
+
     /* Set up LCD draw callback */
     emu.gb->display.lcd_draw_line = lcd_draw_line;
     

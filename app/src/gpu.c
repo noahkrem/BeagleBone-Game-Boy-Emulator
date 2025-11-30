@@ -10,6 +10,20 @@ void gpu_draw_line(struct gb_s *gb){
 	uint8_t pixels[160] = {0};
 
 	/* If LCD not initialised by front-end, don't render anything. */
+    if(gb->display.lcd_draw_line == NULL) return;
+
+    /* Render unless LCD is completely disabled (0x00) */
+	if (gb->hram_io[IO_LCDC] == 0x00) return;
+
+    /* DEBUG: print LCDC bits at start of first few frames */
+    if (gb->frame_debug < 3 && gb->hram_io[IO_LY] == 0) {
+        printf("DEBUG LCDC BITS: BG_ENABLE=%u TILE_SELECT=%u BG_MAP=%u\n",
+               (gb->hram_io[IO_LCDC] & LCDC_BG_ENABLE) ? 1 : 0,
+               (gb->hram_io[IO_LCDC] & LCDC_TILE_SELECT) ? 1 : 0,
+               (gb->hram_io[IO_LCDC] & LCDC_BG_MAP) ? 1 : 0);
+    }
+
+	/* If LCD not initialised by front-end, don't render anything. */
 	if(gb->display.lcd_draw_line == NULL) return;
 
 	// DEBUG: print palette at start of frame
@@ -25,9 +39,9 @@ void gpu_draw_line(struct gb_s *gb){
     }
 
 	// DEBUG: force visible output for this line
-    for (int i = 0; i < LCD_WIDTH; i++) {
-        pixels[i] = gb->display.bg_palette[3];  // or just 3 if you want raw index
-    }
+    // for (int i = 0; i < LCD_WIDTH; i++) {
+    //     pixels[i] = gb->display.bg_palette[3];  // or just 3 if you want raw index
+    // }
 
 	/* If background is enabled, draw it. */
 	if(gb->hram_io[IO_LCDC] & LCDC_BG_ENABLE){
@@ -48,6 +62,23 @@ void gpu_draw_line(struct gb_s *gb){
 		 * shift is to calculate the address.
          */
 		bg_map = ((gb->hram_io[IO_LCDC] & LCDC_BG_MAP) ? VRAM_BMAP_2 : VRAM_BMAP_1) + (bg_y >> 3) * 0x20;
+
+		// Debugging
+		if (gb->frame_debug < 3 && (gb->hram_io[IO_LY] == 0 || gb->hram_io[IO_LY] == 80)) {
+			uint32_t sum = 0;
+			for (int x = 0; x < LCD_WIDTH; x++) {
+				sum += (pixels[x] & 0x03);
+			}
+			printf("DEBUG GPU: frame=%u LY=%u SCX=%u SCY=%u LCDC=0x%02X bg_map=0x%04X bg_y=0x%02X idx@159=0x%02X\n",
+				gb->frame_debug,
+				gb->hram_io[IO_LY],
+				gb->hram_io[IO_SCX],
+				gb->hram_io[IO_SCY],
+				gb->hram_io[IO_LCDC],
+				bg_map,
+				bg_y,
+				gb->vram[bg_map + ((159 + gb->hram_io[IO_SCX]) >> 3)]);
+		}
 
 		/* The displays (what the player sees) X coordinate, drawn right to left. */
 		disp_x = LCD_WIDTH - 1;
@@ -70,6 +101,11 @@ void gpu_draw_line(struct gb_s *gb){
 		/* X coordinate of tile pixel to draw. */
 		px = 7 - (bg_x & 0x07);
 
+		// DEBUG: Check VRAM tile index and coordinates
+		if (gb->hram_io[IO_LY] == 80 && idx == 0x39) {
+			printf("DEBUG: py=%u px=%u bg_y=0x%02X bg_x=0x%02X\n", py, px, bg_y, bg_x);
+		}
+
 		/* Select addressing mode. */
 		if(gb->hram_io[IO_LCDC] & LCDC_TILE_SELECT){
 			tile = VRAM_TILES_1 + idx * 0x10;
@@ -82,6 +118,7 @@ void gpu_draw_line(struct gb_s *gb){
 		t1 = gb->vram[tile] >> px;
 		t2 = gb->vram[tile + 1] >> px;
 
+		// DEBUG: Check VRAM tile data
 		if (gb->hram_io[IO_LY] == 80 && (t1 != 0 || t2 != 0)) {
 			printf("DEBUG: LY=80 tile data non-zero: t1=%02X t2=%02X\n", t1, t2);
 			printf("  raw: vram[0x%04X]=0x%02X vram[0x%04X]=0x%02X\n",
@@ -111,6 +148,11 @@ void gpu_draw_line(struct gb_s *gb){
 			/* copy background */
 			c = (t1 & 0x1) | ((t2 & 0x1) << 1);
 			pixels[disp_x] = gb->display.bg_palette[c];
+
+			if (gb->hram_io[IO_LY] == 80 && disp_x > 140 && disp_x <= 159) {
+				printf("DEBUG: LY=80 x=%3u c=%u bgpix=%u\n",
+					disp_x, c, pixels[disp_x]);
+			}
 
 			t1 >>= 1;
 			t2 >>= 1;
@@ -316,4 +358,12 @@ void gpu_draw_line(struct gb_s *gb){
     // }
 
 	gb->display.lcd_draw_line(gb, pixels, gb->hram_io[IO_LY]);
+
+	if (gb->hram_io[IO_LY] == 0 && gb->frame_debug < 5) {
+		printf("DEBUG GPU CALLED: frame=%u LY=%u first=%u last=%u\n",
+			gb->frame_debug,
+			gb->hram_io[IO_LY],
+			pixels[0] & 0x03,
+			pixels[LCD_WIDTH - 1] & 0x03);
+	}
 }

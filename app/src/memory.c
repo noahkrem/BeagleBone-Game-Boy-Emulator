@@ -11,6 +11,9 @@
 #include "memory.h"
 #include "gb_types.h"
 
+/* External framebuffer from main.c */
+extern uint16_t fb[144][160];
+
 
 // ----------------------------------
 // Memory Read Function
@@ -248,16 +251,24 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
             
             case IO_LCDC: /* LCD Control (0xFF40) */
             {
-                uint8_t lcd_was_on = gb->hram_io[IO_LCDC] & LCDC_ENABLE;
+                uint8_t old = gb->hram_io[IO_LCDC];
+                uint8_t lcd_was_on = old & LCDC_ENABLE;
                 gb->hram_io[IO_LCDC] = val;
-                
-                /* Check if LCD is being turned on */
-                if (!lcd_was_on && (val & LCDC_ENABLE)) {
-                    gb->lcd_blank = true;
+                uint8_t lcd_is_now_on = val & LCDC_ENABLE;
+
+                if ((old ^ val) & LCDC_ENABLE) {
+                    printf("DEBUG LCDC: %s at frame %u (old=0x%02X new=0x%02X)\n",
+                        (val & LCDC_ENABLE) ? "ON" : "OFF",
+                        gb->frame_debug, old, val);
                 }
-                /* Check if LCD is being turned off */
-                else if (lcd_was_on && !(val & LCDC_ENABLE)) {
-                    /* Set to mode 0 (HBlank) when LCD off */
+                
+                if (!lcd_was_on && lcd_is_now_on) {
+                    gb->lcd_blank = true;
+                    gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
+                    gb->hram_io[IO_LY] = 0;
+                    gb->counter.lcd_count = 0;
+                }
+                else if (lcd_was_on && !lcd_is_now_on) {
                     gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_HBLANK;
                     gb->hram_io[IO_LY] = 0;
                     gb->counter.lcd_count = 0;
@@ -281,6 +292,32 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
             case IO_IE: /* Interrupt Enable (0xFF) */
                 gb->hram_io[IO_IE] = val;
                 break;
+
+            case IO_SCY: /* Scroll Y (0xFF42) */
+                gb->hram_io[IO_SCY] = val;
+                /* Optional debug: log initial writes */
+                if (gb->frame_debug < 5) {
+                    printf("DEBUG SCY write: val=%u frame=%u\n", val, gb->frame_debug);
+                }
+                break;
+
+            case IO_SCX: /* Scroll X (0xFF43) */
+                gb->hram_io[IO_SCX] = val;
+                /* Optional debug */
+                if (gb->frame_debug < 5) {
+                    printf("DEBUG SCX write: val=%u frame=%u\n", val, gb->frame_debug);
+                }
+                break;
+
+            /* Also ensure you have these while you're here */
+            case IO_WX: /* Window X (0xFF4B) */
+                gb->hram_io[IO_WX] = val;
+                break;
+
+            case IO_WY: /* Window Y (0xFF4A) */
+                gb->display.WY = val;  /* Store wherever your PPU reads WY from */
+                break;
+
             
             default:
                 /* All other I/O registers and HRAM */
