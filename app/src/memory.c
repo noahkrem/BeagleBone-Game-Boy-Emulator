@@ -11,6 +11,9 @@
 #include "memory.h"
 #include "gb_types.h"
 
+/* External framebuffer from main.c */
+extern uint16_t fb[144][160];
+
 
 // ----------------------------------
 // Memory Read Function
@@ -22,12 +25,18 @@ uint8_t mmu_read(struct gb_s *gb, uint16_t addr) {
         return gb->gb_rom_read(gb, addr);
     }
     
-    /* ROM Bank N (0x4000 - 0x7FFF) - Switchable */
+    // ROM Bank N (0x4000 - 0x7FFF) - Switchable 
+    // Bugfix: This code previously used the wrong calculation for the ROM address for ROM bank 1.
+    //   The fix was to update the formula to "ROM Address = CPU Address + (Selected Bank - 1) * Bank Size".
+    //   This formula includes the correct base offset for ROM bank 1, enabling us to read the correct data 
+    //   relative to the start of the ROM file.
     else if (addr < 0x8000) {
         /* Calculate offset based on selected bank */
-        uint32_t offset = addr - 0x4000;
-        uint32_t rom_addr = offset + ((gb->selected_rom_bank - 1) * ROM_BANK_SIZE);
-        return gb->gb_rom_read(gb, rom_addr);
+        if(gb->mbc == 1 && gb->cart_mode_select){
+			return gb->gb_rom_read(gb, addr + ((gb->selected_rom_bank & 0x1F) - 1) * ROM_BANK_SIZE);
+        } else {
+			return gb->gb_rom_read(gb, addr + (gb->selected_rom_bank - 1) * ROM_BANK_SIZE);
+        }
     }
     
     /* Video RAM (0x8000 - 0x9FFF) */
@@ -76,25 +85,31 @@ uint8_t mmu_read(struct gb_s *gb, uint16_t addr) {
         return 0xFF;
     }
     
-    /* I/O Registers and High RAM (0xFF00 - 0xFFFF) */
+    // I/O Registers and High RAM (0xFF00 - 0xFFFF)
+    // Effectively the "no row selected" case for JOYP
+    // The JOYP register is a 2×4 matrix:
+    //   Bits 4–5 select which half (d‑pad vs buttons) the game wants.
+    //   Bits 0–3 return the state of that half (0 = pressed, 1 = released).
+    //   If neither bit 4 nor bit 5 is cleared (i.e., both are 1), the game hasn’t selected anything; 
+    //     conceptually, “no keys are being scanned” and you typically return all 1s (no key pressed).
     else {
         /* Special handling for joypad register */
         if (addr == 0xFF00) {
             uint8_t joyp = gb->hram_io[IO_JOYP];
+            uint8_t result = joyp | 0x0F;  // Start with low nibble = 1111 (all released)
             
             /* If direction keys selected (bit 4 = 0) */
             if ((joyp & 0x10) == 0) {
-                joyp |= (gb->direct.joypad >> 4) & 0x0F;
+                // AND with direction bits (right, left, up, down)
+                result &= (gb->direct.joypad >> 4) | 0xF0;
             }
             /* If button keys selected (bit 5 = 0) */
             else if ((joyp & 0x20) == 0) {
-                joyp |= gb->direct.joypad & 0x0F;
-            }
-            else {
-                joyp |= 0x0F;  /* No keys selected */
+                // AND with button bits (a, b, select, start)
+                result &= gb->direct.joypad | 0xF0;
             }
             
-            return joyp;
+            return result;
         }
         
         /* All other I/O and HRAM */
@@ -148,6 +163,13 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
     /* Video RAM (0x8000 - 0x9FFF) */
     else if (addr < 0xA000) {
         gb->vram[addr - 0x8000] = val;
+
+        // DEBUG: Log first few VRAM writes
+        static int vram_write_count = 0;
+        if (vram_write_count < 20) {
+            printf("VRAM WRITE: addr=0x%04X val=0x%02X\n", addr, val);
+            vram_write_count++;
+        }
     }
     
     /* External RAM (0xA000 - 0xBFFF) */
@@ -242,16 +264,24 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
             
             case IO_LCDC: /* LCD Control (0xFF40) */
             {
-                uint8_t lcd_was_on = gb->hram_io[IO_LCDC] & LCDC_ENABLE;
+                uint8_t old = gb->hram_io[IO_LCDC];
+                uint8_t lcd_was_on = old & LCDC_ENABLE;
                 gb->hram_io[IO_LCDC] = val;
-                
-                /* Check if LCD is being turned on */
-                if (!lcd_was_on && (val & LCDC_ENABLE)) {
-                    gb->lcd_blank = true;
+                uint8_t lcd_is_now_on = val & LCDC_ENABLE;
+
+                if ((old ^ val) & LCDC_ENABLE) {
+                    printf("DEBUG LCDC: %s at frame %u (old=0x%02X new=0x%02X)\n",
+                        (val & LCDC_ENABLE) ? "ON" : "OFF",
+                        gb->frame_debug, old, val);
                 }
-                /* Check if LCD is being turned off */
-                else if (lcd_was_on && !(val & LCDC_ENABLE)) {
-                    /* Set to mode 0 (HBlank) when LCD off */
+                
+                if (!lcd_was_on && lcd_is_now_on) {
+                    gb->lcd_blank = true;
+                    gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
+                    gb->hram_io[IO_LY] = 0;
+                    gb->counter.lcd_count = 0;
+                }
+                else if (lcd_was_on && !lcd_is_now_on) {
                     gb->hram_io[IO_STAT] = (gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_HBLANK;
                     gb->hram_io[IO_LY] = 0;
                     gb->counter.lcd_count = 0;
@@ -275,6 +305,32 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
             case IO_IE: /* Interrupt Enable (0xFF) */
                 gb->hram_io[IO_IE] = val;
                 break;
+
+            case IO_SCY: /* Scroll Y (0xFF42) */
+                gb->hram_io[IO_SCY] = val;
+                /* Optional debug: log initial writes */
+                if (gb->frame_debug < 5) {
+                    printf("DEBUG SCY write: val=%u frame=%u\n", val, gb->frame_debug);
+                }
+                break;
+
+            case IO_SCX: /* Scroll X (0xFF43) */
+                gb->hram_io[IO_SCX] = val;
+                /* Optional debug */
+                if (gb->frame_debug < 5) {
+                    printf("DEBUG SCX write: val=%u frame=%u\n", val, gb->frame_debug);
+                }
+                break;
+
+            /* Also ensure you have these while you're here */
+            case IO_WX: /* Window X (0xFF4B) */
+                gb->hram_io[IO_WX] = val;
+                break;
+
+            case IO_WY: /* Window Y (0xFF4A) */
+                gb->display.WY = val;  /* Store wherever your PPU reads WY from */
+                break;
+
             
             default:
                 /* All other I/O registers and HRAM */

@@ -17,6 +17,7 @@
 #include "memory.h"
 #include "rom.h"
 
+
 /* Display scaling factor */
 #define SCALE_FACTOR 5
 
@@ -50,10 +51,29 @@ typedef struct {
  * This matches Peanut-GB's lcd_draw_line signature
  */
 void lcd_draw_line(struct gb_s *gb, const uint8_t pixels[160], uint8_t line) {
-    (void)gb; /* Unused parameter */
-    
+    (void)gb; // Unused parameter
+
     for (unsigned int x = 0; x < LCD_WIDTH; x++) {
-        fb[line][x] = palette[pixels[x] & 0x03];
+        // 2-bit DMG colour index 0–3 from PPU
+        uint8_t idx = pixels[x] & 0x03;
+
+        // 24-bit RGB from our DMG palette (0xRRGGBB) /
+        uint32_t rgb = palette[idx];
+
+        // Extract 8-bit components /
+        uint8_t r8 = (rgb >> 16) & 0xFF;
+        uint8_t g8 = (rgb >> 8)  & 0xFF;
+        uint8_t b8 =  rgb        & 0xFF;
+
+        // Convert 8-bit → 5-bit for XRGB1555 /
+        uint16_t r5 = r8 >> 3;   // keep top 5 bits /
+        uint16_t g5 = g8 >> 3;
+        uint16_t b5 = b8 >> 3;
+
+        // Pack into XRGB1555: x rrrrr ggggg bbbbb */
+        uint16_t pixel1555 = (uint16_t)((r5 << 10) | (g5 << 5) | b5);
+
+        fb[line][x] = pixel1555;
     }
 }
 
@@ -71,15 +91,19 @@ void handle_input(emulator_state_t *emu, SDL_Event *event) {
                 /* Game Boy D-Pad */
                 case SDLK_UP:
                     emu->gb->direct.joypad_bits.up = 0;
+                    printf("DEBUG: UP pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 case SDLK_DOWN:
                     emu->gb->direct.joypad_bits.down = 0;
+                    printf("DEBUG: DOWN pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 case SDLK_LEFT:
                     emu->gb->direct.joypad_bits.left = 0;
+                    printf("DEBUG: LEFT pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 case SDLK_RIGHT:
                     emu->gb->direct.joypad_bits.right = 0;
+                    printf("DEBUG: RIGHT pressed, joypad = 0x%02X\n", emu->gb->direct.joypad);
                     break;
                 
                 /* Game Boy Buttons */
@@ -106,12 +130,12 @@ void handle_input(emulator_state_t *emu, SDL_Event *event) {
                     printf("%s\n", emu->paused ? "⏸  Paused" : "▶  Resumed");
                     break;
                 case SDLK_R:
-                    printf("🔄 Reset\n");
+                    printf("Reset\n");
                     cpu_reset(emu->gb);
                     mmu_reset(emu->gb);
                     break;
                 case SDLK_F:
-                    printf("📊 Frames: %u\n", emu->frame_count);
+                    printf("Frames: %u\n", emu->frame_count);
                     break;
             }
             break;
@@ -265,7 +289,7 @@ void update_display(emulator_state_t *emu) {
 void emulator_loop(emulator_state_t *emu) {
     SDL_Event event;
     
-    printf("\n🎮 Starting emulation...\n");
+    printf("\nStarting emulation...\n");
     printf("Controls:\n");
     printf("  Arrow Keys = D-Pad\n");
     printf("  Z = A Button\n");
@@ -295,7 +319,7 @@ void emulator_loop(emulator_state_t *emu) {
         }
     }
     
-    printf("\n📊 Total frames rendered: %u\n", emu->frame_count);
+    printf("\nTotal frames rendered: %u\n", emu->frame_count);
 }
 
 /**
@@ -326,7 +350,7 @@ int main(int argc, char **argv) {
     }
     
     /* Load ROM via bootloader */
-    printf("📦 Loading ROM: %s\n", rom_path);
+    printf("Loading ROM: %s\n", rom_path);
     emu.gb = bootloader(rom_path);
     
     if (!emu.gb) {
@@ -335,25 +359,41 @@ int main(int argc, char **argv) {
         return 1;
     }
     
+    
+    /* Force LCDC to a known good state for game startup */
+    // emu.gb->hram_io[IO_LCDC] = 0x91;  /* LCD on, BG on, window off, tiles 0x8000, BG map 0x9C00 */
+    // emu.gb->hram_io[IO_STAT] = (emu.gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
+    // emu.gb->hram_io[IO_LY] = 0;
+    // emu.gb->counter.lcd_count = 0;
+    
     /* Set up LCD draw callback */
     emu.gb->display.lcd_draw_line = lcd_draw_line;
     
     /* Initialize joypad to "all buttons released" state */
     emu.gb->direct.joypad = 0xFF;
     
+    // Initialize frame debug counter
+    emu.gb->frame_debug = 0;
+    
     printf("✓ ROM loaded successfully\n");
+
+    printf("Running initial frames to let ROM initialize...\n");
+    for (int i = 0; i < 10; i++) {
+        run_frame(&emu);
+    }
+    printf("Initial frames complete, starting display...\n");
     
     /* Run main emulation loop */
     emulator_loop(&emu);
     
     /* Cleanup */
-    printf("\n🧹 Cleaning up...\n");
+    printf("\nCleaning up...\n");
     free(emu.gb);
     bootloader_cleanup();
     cleanup_sdl(&emu);
     
     printf("✓ Cleanup complete\n");
-    printf("\n👋 Goodbye!\n");
+    printf("\nGoodbye!\n");
     
     return 0;
 }
