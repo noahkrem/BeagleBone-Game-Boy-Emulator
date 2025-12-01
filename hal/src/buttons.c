@@ -1,18 +1,15 @@
 // buttons.c
+//Active Low Buttons
+
 #include "buttons.h"
 
 #include <gpiod.h>
 #include <string.h>
 
-/* Match your existing gpio16_17.c setup */
 #define BTN_CHIP_PATH   "/dev/gpiochip2"
-#define OFF_GPIO16      7   /* A button */
-#define OFF_GPIO17      8   /* B button */
-#define OFF_GPIO15      13  /* Start button */
-
-/* active-low or active-high depends on wiring; we’ll interpret
- * "ACTIVE" from libgpiod as "pressed".
- */
+#define OFF_GPIO16      7   // A button 
+#define OFF_GPIO17      8   // B button 
+#define OFF_GPIO15      13  // Start button 
 
 static struct gpiod_chip *btn_chip = NULL;
 static struct gpiod_line_request *btn_req = NULL;
@@ -36,9 +33,7 @@ bool buttons_init(void)
     if (!ls_in) goto fail;
     if (gpiod_line_settings_set_direction(ls_in, GPIOD_LINE_DIRECTION_INPUT) < 0)
         goto fail;
-    /* Optionally:
-     * gpiod_line_settings_set_bias(ls_in, GPIOD_LINE_BIAS_PULL_UP);
-     */
+   
 
     lcfg = gpiod_line_config_new();
     if (!lcfg) goto fail;
@@ -83,10 +78,10 @@ void buttons_poll(buttons_state_t *state)
 
     enum gpiod_line_value vals[3];
     if (gpiod_line_request_get_values(btn_req, vals) < 0) {
-        return;  // treat as all released on error
+        return;  
     }
 
-    /* Interpret ACTIVE as pressed (true). Adjust if inverted. */
+    // Interpret ACTIVE as pressed (true).
     bool a_pressed     = (vals[0] == GPIOD_LINE_VALUE_ACTIVE);
     bool b_pressed     = (vals[1] == GPIOD_LINE_VALUE_ACTIVE);
     bool start_pressed = (vals[2] == GPIOD_LINE_VALUE_ACTIVE);

@@ -1,4 +1,4 @@
-// joystick.c  (renamed from adc_continuous.c)
+// joystick.c  
 #include "joystick.h"
 
 #include <stdint.h>
@@ -10,25 +10,25 @@
 #include <errno.h>
 #include <stdio.h>
 
-/* ---------- config: adjust if wiring is different ---------- */
+//configs-----------------------------------------------
 
-/* SPI device for MCP3208 */
+// SPI device for MCP3208
 #define JOY_SPI_DEV     "/dev/spidev0.0"
 #define JOY_SPI_SPEED   250000u
 
-/* ADC channels: 0 = X, 1 = Y (change if needed) */
+// ADC channels: 0 = X, 1 = Y 
 #define JOY_X_CH        0
 #define JOY_Y_CH        1
 
-/* 12-bit ADC range 0..4095, centre ≈ 2048 */
+// 12-bit ADC range 0 to 4095, centre ≈ 2048 
 #define JOY_CENTER      2048
-#define JOY_DEADZONE    600   /* tweak to adjust sensitivity */
+#define JOY_DEADZONE    600   //sensitivity
 
-/* ---------------------------------------------------------- */
+//----------------------------------------------------------
 
 static int joy_fd = -1;
 
-/* Internal helper to read one MCP3208 channel */
+// Internal helper to read one MCP3208 channel
 static int read_ch(int fd, int ch, uint32_t speed_hz)
 {
     uint8_t tx[3] = {
@@ -91,7 +91,7 @@ void joystick_poll(joystick_state_t *state)
 
     if (!state) return;
 
-    /* default: no direction pressed */
+    // default: no direction pressed
     state->up = state->down = state->left = state->right = false;
 
     if (joy_fd < 0){
@@ -112,7 +112,7 @@ void joystick_poll(joystick_state_t *state)
     //     return;   // read error, treat as neutral
     // }
 
-    /* Horizontal */
+    // Horizontal 
     if (x < JOY_CENTER - JOY_DEADZONE) {
         state->left  = true;
         state->right = false;
@@ -121,7 +121,7 @@ void joystick_poll(joystick_state_t *state)
         state->left  = false;
     }
 
-    /* Vertical (flip if joystick orientation is opposite) */
+    // Vertical 
     if (y < JOY_CENTER - JOY_DEADZONE) {
         state->up   = false;
         state->down = true;

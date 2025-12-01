@@ -304,12 +304,13 @@ void emulator_loop(emulator_state_t *emu) {
     printf("  ESC = Quit\n\n");
     
     while (emu->running) {
+        
         /* Handle all pending events */
         while (SDL_PollEvent(&event)) {
             handle_input(emu, &event);
         }
 
-        /* --- NEW: poll hardware inputs --- */
+        /* poll hardware inputs */
         joystick_state_t js;
         buttons_state_t bs;
         joystick_poll(&js);
@@ -317,13 +318,13 @@ void emulator_loop(emulator_state_t *emu) {
 
         /* Map hardware to joypad_bits (active-low: 0 = pressed, 1 = released) */
 
-        /* D-pad from joystick */
+        // Direction-pad from joystick 
         emu->gb->direct.joypad_bits.left  = js.left  ? 0 : 1;
         emu->gb->direct.joypad_bits.right = js.right ? 0 : 1;
         emu->gb->direct.joypad_bits.up    = js.up    ? 0 : 1;
         emu->gb->direct.joypad_bits.down  = js.down  ? 0 : 1;
 
-        /* Buttons from GPIO */
+        // Buttons from GPIO 
         emu->gb->direct.joypad_bits.a     = bs.a     ? 0 : 1;  // GPIO16
         emu->gb->direct.joypad_bits.b     = bs.b     ? 0 : 1;  // GPIO17
         emu->gb->direct.joypad_bits.start = bs.start ? 0 : 1;  // GPIO15
