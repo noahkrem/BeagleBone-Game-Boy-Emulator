@@ -1,5 +1,7 @@
 ## Build the app, using the HAL
 
+find_package(SDL3 REQUIRED)
+
 ## Build a core library from app sources (so tests can link against it)
 
 set(GBE_CORE_SOURCES
