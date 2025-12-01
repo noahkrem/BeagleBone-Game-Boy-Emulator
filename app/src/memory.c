@@ -295,18 +295,10 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
 
             case IO_SCY: /* Scroll Y (0xFF42) */
                 gb->hram_io[IO_SCY] = val;
-                /* Optional debug: log initial writes */
-                if (gb->frame_debug < 5) {
-                    printf("DEBUG SCY write: val=%u frame=%u\n", val, gb->frame_debug);
-                }
                 break;
 
             case IO_SCX: /* Scroll X (0xFF43) */
                 gb->hram_io[IO_SCX] = val;
-                /* Optional debug */
-                if (gb->frame_debug < 5) {
-                    printf("DEBUG SCX write: val=%u frame=%u\n", val, gb->frame_debug);
-                }
                 break;
 
             /* Also ensure you have these while you're here */
