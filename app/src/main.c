@@ -328,19 +328,19 @@ void emulator_loop(emulator_state_t *emu) {
         emu->gb->direct.joypad_bits.b     = bs.b     ? 0 : 1;  // GPIO17
         emu->gb->direct.joypad_bits.start = bs.start ? 0 : 1;  // GPIO15
         
-        /* DEBUG: what Game Boy actually sees */
-        static int dbg = 0;
-        if ((dbg % 15) == 0) {
-        printf("JOYBIT: UDLR=%d%d%d%d  A=%d B=%d START=%d  raw=0x%02X\n",
-               emu->gb->direct.joypad_bits.up,
-               emu->gb->direct.joypad_bits.down,
-               emu->gb->direct.joypad_bits.left,
-               emu->gb->direct.joypad_bits.right,
-               emu->gb->direct.joypad_bits.a,
-               emu->gb->direct.joypad_bits.b,
-               emu->gb->direct.joypad_bits.start,
-               emu->gb->direct.joypad);
-    }
+    //     /* DEBUG: what Game Boy actually sees */
+    //     static int dbg = 0;
+    //     if ((dbg % 15) == 0) {
+    //     printf("JOYBIT: UDLR=%d%d%d%d  A=%d B=%d START=%d  raw=0x%02X\n",
+    //            emu->gb->direct.joypad_bits.up,
+    //            emu->gb->direct.joypad_bits.down,
+    //            emu->gb->direct.joypad_bits.left,
+    //            emu->gb->direct.joypad_bits.right,
+    //            emu->gb->direct.joypad_bits.a,
+    //            emu->gb->direct.joypad_bits.b,
+    //            emu->gb->direct.joypad_bits.start,
+    //            emu->gb->direct.joypad);
+    // }
 
         /* Run emulation if not paused */
         if (!emu->paused) {

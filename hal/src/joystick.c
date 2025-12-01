@@ -87,7 +87,7 @@ bool joystick_init(void)
 
 void joystick_poll(joystick_state_t *state)
 {
-    static int counter = 0;
+    //static int counter = 0;
 
     if (!state) return;
 
@@ -95,22 +95,22 @@ void joystick_poll(joystick_state_t *state)
     state->up = state->down = state->left = state->right = false;
 
     if (joy_fd < 0){
-         // debug: see if we ever get here
-        if ((counter++ % 120) == 0) {
-            printf("joystick_poll: joy_fd < 0 (not initialised)\n");
-        }
+        //  // debug: see if we ever get here
+        // if ((counter++ % 120) == 0) {
+        //     printf("joystick_poll: joy_fd < 0 (not initialised)\n");
+        // }
         return;   // joystick not available, leave as all false
     }
 
     int x = read_ch(joy_fd, JOY_X_CH, JOY_SPI_SPEED);
     int y = read_ch(joy_fd, JOY_Y_CH, JOY_SPI_SPEED);
 
-    if (x < 0 || y < 0) {
-        if ((counter++ % 60) == 0) {
-            printf("joystick_poll: read error x=%d y=%d\n", x, y);
-        }
-        return;   // read error, treat as neutral
-    }
+    // if (x < 0 || y < 0) {
+    //     // if ((counter++ % 60) == 0) {
+    //         // printf("joystick_poll: read error x=%d y=%d\n", x, y);
+    //     }
+    //     return;   // read error, treat as neutral
+    // }
 
     /* Horizontal */
     if (x < JOY_CENTER - JOY_DEADZONE) {
@@ -123,17 +123,17 @@ void joystick_poll(joystick_state_t *state)
 
     /* Vertical (flip if joystick orientation is opposite) */
     if (y < JOY_CENTER - JOY_DEADZONE) {
-        state->up   = true;
-        state->down = false;
+        state->up   = false;
+        state->down = true;
     } else if (y > JOY_CENTER + JOY_DEADZONE) {
         state->down = true;
         state->up   = false;
     }
-    if ((counter++ % 30) == 0) {
-        printf("joystick_poll: x=%4d y=%4d  -> UDLR = %d%d%d%d\n",
-               x, y,
-               state->up, state->down, state->left, state->right);
-    }
+    // if ((counter++ % 30) == 0) {
+    //     printf("joystick_poll: x=%4d y=%4d  -> UDLR = %d%d%d%d\n",
+    //            x, y,
+    //            state->up, state->down, state->left, state->right);
+    // }
 }
 
 void joystick_shutdown(void)
