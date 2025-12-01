@@ -14,42 +14,8 @@ void gpu_draw_line(struct gb_s *gb){
     /* Render unless LCD is completely disabled (0x00) */
 	if (gb->hram_io[IO_LCDC] == 0x00) return;
 
-    // DEBUG: Check if ANY tile data exists in VRAM
-	if (gb->frame_debug < 2 && gb->hram_io[IO_LY] == 0) {
-		int non_zero_tiles = 0;
-		for (int i = 0; i < 0x1800; i++) {  // Check tile data area
-			if (gb->vram[i] != 0) non_zero_tiles++;
-		}
-		printf("DEBUG: Non-zero VRAM bytes in tile area: %d / %d\n", 
-			non_zero_tiles, 0x1800);
-		
-		// Check tilemap
-		int non_zero_map = 0;
-		for (int i = 0x1800; i < 0x1C00; i++) {  // Tilemap 0
-			if (gb->vram[i] != 0) non_zero_map++;
-		}
-		printf("DEBUG: Non-zero tilemap entries: %d / 1024\n", non_zero_map);
-	}
-
 	/* If LCD not initialised by front-end, don't render anything. */
 	if(gb->display.lcd_draw_line == NULL) return;
-
-	// DEBUG: print palette at start of frame
-    static int frame_count = 0;
-    if (frame_count == 0 && gb->hram_io[IO_LY] == 0) {
-        printf("PALETTE: BGP=0x%02X bg[0..3]=%u,%u,%u,%u\n",
-               gb->hram_io[IO_BGP],
-               gb->display.bg_palette[0],
-               gb->display.bg_palette[1],
-               gb->display.bg_palette[2],
-               gb->display.bg_palette[3]);
-        frame_count++;
-    }
-
-	// DEBUG: force visible output for this line
-    // for (int i = 0; i < LCD_WIDTH; i++) {
-    //     pixels[i] = gb->display.bg_palette[3];  // or just 3 if you want raw index
-    // }
 
 	/* If background is enabled, draw it. */
 	if(gb->hram_io[IO_LCDC] & LCDC_BG_ENABLE){
@@ -71,30 +37,6 @@ void gpu_draw_line(struct gb_s *gb){
          */
 		bg_map = ((gb->hram_io[IO_LCDC] & LCDC_BG_MAP) ? VRAM_BMAP_2 : VRAM_BMAP_1) + (bg_y >> 3) * 0x20;
 
-		// Debugging
-		if (gb->frame_debug < 3 && (gb->hram_io[IO_LY] == 0 || gb->hram_io[IO_LY] == 80)) {
-			uint32_t sum = 0;
-			for (int x = 0; x < LCD_WIDTH; x++) {
-				sum += (pixels[x] & 0x03);
-			}
-			printf("DEBUG GPU: frame=%u LY=%u SCX=%u SCY=%u LCDC=0x%02X bg_map=0x%04X bg_y=0x%02X idx@159=0x%02X\n",
-				gb->frame_debug,
-				gb->hram_io[IO_LY],
-				gb->hram_io[IO_SCX],
-				gb->hram_io[IO_SCY],
-				gb->hram_io[IO_LCDC],
-				bg_map,
-				bg_y,
-				gb->vram[bg_map + ((159 + gb->hram_io[IO_SCX]) >> 3)]);
-		}
-
-		if (gb->hram_io[IO_LY] == 144) {
-			printf("DEBUG: LY=144, setting VBLANK interrupt. IF before=%02X\n", 
-				gb->hram_io[IO_IF]);
-			gb->hram_io[IO_IF] |= 0x01;  // Set VBLANK interrupt
-			printf("DEBUG: IF after=%02X\n", gb->hram_io[IO_IF]);
-		}
-
 		/* The displays (what the player sees) X coordinate, drawn right to left. */
 		disp_x = LCD_WIDTH - 1;
 
@@ -110,11 +52,6 @@ void gpu_draw_line(struct gb_s *gb){
 		py = (bg_y & 0x07);
 		/* X coordinate of tile pixel to draw. */
 		px = 7 - (bg_x & 0x07);
-
-		// DEBUG: Check VRAM tile index and coordinates
-		if (gb->hram_io[IO_LY] == 80 && idx == 0x39) {
-			printf("DEBUG: py=%u px=%u bg_y=0x%02X bg_x=0x%02X\n", py, px, bg_y, bg_x);
-		}
 
 		/* Select addressing mode. */
 		if(gb->hram_io[IO_LCDC] & LCDC_TILE_SELECT){
@@ -150,11 +87,6 @@ void gpu_draw_line(struct gb_s *gb){
 			/* copy background */
 			c = (t1 & 0x1) | ((t2 & 0x1) << 1);
 			pixels[disp_x] = gb->display.bg_palette[c];
-
-			// if (gb->hram_io[IO_LY] == 80 && disp_x > 140 && disp_x <= 159) {
-			// 	printf("DEBUG: LY=80 x=%3u c=%u bgpix=%u\n",
-			// 		disp_x, c, pixels[disp_x]);
-			// }
 
 			t1 >>= 1;
 			t2 >>= 1;
@@ -346,26 +278,5 @@ void gpu_draw_line(struct gb_s *gb){
 		}
 	}
 
-	// DEBUG: inspect line contents for a few key lines
-    // if (gb->hram_io[IO_LY] == 0 || gb->hram_io[IO_LY] == 80 || gb->hram_io[IO_LY] == 143) {
-    //     uint32_t sum = 0;
-    //     for (int x = 0; x < LCD_WIDTH; x++) {
-    //         sum += (pixels[x] & 0x03);
-    //     }
-    //     printf("DEBUG: GPU LINE %u: first=%u last=%u sum=%u\n",
-    //            gb->hram_io[IO_LY],
-    //            pixels[0] & 0x03,
-    //            pixels[LCD_WIDTH - 1] & 0x03,
-    //            sum);
-    // }
-
 	gb->display.lcd_draw_line(gb, pixels, gb->hram_io[IO_LY]);
-
-	if (gb->hram_io[IO_LY] == 0 && gb->frame_debug < 5) {
-		printf("DEBUG GPU CALLED: frame=%u LY=%u first=%u last=%u\n",
-			gb->frame_debug,
-			gb->hram_io[IO_LY],
-			pixels[0] & 0x03,
-			pixels[LCD_WIDTH - 1] & 0x03);
-	}
 }

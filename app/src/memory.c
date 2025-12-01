@@ -163,13 +163,6 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
     /* Video RAM (0x8000 - 0x9FFF) */
     else if (addr < 0xA000) {
         gb->vram[addr - 0x8000] = val;
-
-        // DEBUG: Log first few VRAM writes
-        static int vram_write_count = 0;
-        if (vram_write_count < 20) {
-            printf("VRAM WRITE: addr=0x%04X val=0x%02X\n", addr, val);
-            vram_write_count++;
-        }
     }
     
     /* External RAM (0xA000 - 0xBFFF) */
@@ -268,12 +261,6 @@ void mmu_write(struct gb_s *gb, uint16_t addr, uint8_t val) {
                 uint8_t lcd_was_on = old & LCDC_ENABLE;
                 gb->hram_io[IO_LCDC] = val;
                 uint8_t lcd_is_now_on = val & LCDC_ENABLE;
-
-                if ((old ^ val) & LCDC_ENABLE) {
-                    printf("DEBUG LCDC: %s at frame %u (old=0x%02X new=0x%02X)\n",
-                        (val & LCDC_ENABLE) ? "ON" : "OFF",
-                        gb->frame_debug, old, val);
-                }
                 
                 if (!lcd_was_on && lcd_is_now_on) {
                     gb->lcd_blank = true;
