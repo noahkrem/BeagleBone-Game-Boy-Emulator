@@ -254,6 +254,8 @@ export ASAN_OPTIONS=detect_leaks=0
   - Additional details useful for understanding and extending the project.
 
 ### Screenshots and Photos
-- The `images/` directory contains photos and screenshots from the emulator running test ROMs.
+![Emulator running Dr. Mario](images/gbe-dr-mario.png)
+![BeagleBone emulator running Super Mario](images/super-mario-on-Beagle.png)
+![BeagleBone emulator running Tetris](images/tetris-on-Beagle.png)
 
 ---
