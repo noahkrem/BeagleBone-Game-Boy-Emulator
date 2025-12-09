@@ -23,10 +23,18 @@ include(CTest)
 enable_testing()
 
 # SDL3
-find_package(SDL3 REQUIRED CONFIG
-    PATHS /opt/aarch64-sdl2/lib/cmake/SDL3
-    NO_DEFAULT_PATH
-)
+if(CMAKE_CROSSCOMPILING)
+    # Cross build: you called cmake with -DCMAKE_TOOLCHAIN_FILE=...
+    message(STATUS "Configuring for cross-compilation (aarch64)")
+    find_package(SDL3 REQUIRED CONFIG
+        PATHS /opt/aarch64-sdl2/lib/cmake/SDL3
+        NO_DEFAULT_PATH
+    )
+else()
+    # Native build on Debian VM
+    message(STATUS "Configuring for native build")
+    find_package(SDL3 REQUIRED CONFIG)
+endif()
 
 # What folders to build
 add_subdirectory(hal)

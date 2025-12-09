@@ -358,7 +358,13 @@ int main(int argc, char **argv) {
         cleanup_sdl(&emu);
         return 1;
     }
-
+    
+    
+    /* Force LCDC to a known good state for game startup */
+    // emu.gb->hram_io[IO_LCDC] = 0x91;  /* LCD on, BG on, window off, tiles 0x8000, BG map 0x9C00 */
+    // emu.gb->hram_io[IO_STAT] = (emu.gb->hram_io[IO_STAT] & ~STAT_MODE) | LCD_MODE_OAM_SCAN;
+    // emu.gb->hram_io[IO_LY] = 0;
+    // emu.gb->counter.lcd_count = 0;
     
     /* Set up LCD draw callback */
     emu.gb->display.lcd_draw_line = lcd_draw_line;
