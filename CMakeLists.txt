@@ -23,6 +23,7 @@ include(CTest)
 enable_testing()
 
 # SDL3
+# Find SDL3 differently for cross-compiling vs native build
 if(CMAKE_CROSSCOMPILING)
     # Cross build: you called cmake with -DCMAKE_TOOLCHAIN_FILE=...
     message(STATUS "Configuring for cross-compilation (aarch64)")
